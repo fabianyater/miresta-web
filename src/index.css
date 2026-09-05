@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+/* class-based dark mode via data-theme attribute on <html>, driven by store/theme.ts */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+
+  /* warm, near-black neutrals — leña y carbón */
+  --color-neutral-50: #faf9f7;
+  --color-neutral-100: #f1efec;
+  --color-neutral-200: #e2ded8;
+  --color-neutral-300: #c7c1b8;
+  --color-neutral-400: #948c80;
+  --color-neutral-500: #6c6459;
+  --color-neutral-600: #4d463d;
+  --color-neutral-700: #363028;
+  --color-neutral-800: #242019;
+  --color-neutral-900: #18140f;
+
+  /* primary accent — llama dorada del logo (Restaurante Tradición, Leña y Carbón) */
+  --color-brand-50: #fffaea;
+  --color-brand-100: #fff3c9;
+  --color-brand-200: #ffe694;
+  --color-brand-300: #ffd450;
+  --color-brand-400: #ffc21f;
+  --color-brand-500: #f2a90e;
+  --color-brand-600: #cc8a09;
+  --color-brand-700: #a06b08;
+  --color-brand-800: #71490a;
+  --color-brand-900: #452d08;
+
+  /* secondary accent — banda azul-marino del logo, para dark/badges puntuales */
+  --color-ink-500: #23204a;
+  --color-ink-600: #191733;
+
+  /* semantic status colors — mesa/orden state — fijos, no cambian con el tema de
+     color (para que "libre/en uso/pendiente" nunca se confundan entre sí ni con el
+     acento del tema activo) */
+  --color-status-free: #2f8f5b;
+  --color-status-free-bg: #e8f5ee;
+  --color-status-busy: #f2a90e;
+  --color-status-busy-bg: #fdf1e2;
+  --color-status-pending: #2a6db0;
+  --color-status-pending-bg: #e9f1fb;
+  --color-status-done: #6b6559;
+  --color-status-done-bg: #f0eee7;
+}
+
+/* Temas de color — cambian solo el acento (--color-brand-*), no los neutros ni los
+ * colores de estado (libre/en uso/etc, que se quedan fijos a propósito). "Ámbar" es
+ * el de siempre (el del logo) y es el que aplica sin necesidad de marcar nada aquí —
+ * los otros dos se activan con [data-palette="..."] en <html>, vía store/palette.ts. */
+[data-palette="esmeralda"] {
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-200: #a7f3d0;
+  --color-brand-300: #6ee7b7;
+  --color-brand-400: #34d399;
+  --color-brand-500: #10b981;
+  --color-brand-600: #047857;
+  --color-brand-700: #065f46;
+  --color-brand-800: #064e3b;
+  --color-brand-900: #033b2c;
+}
+
+[data-palette="vino"] {
+  --color-brand-50: #fdf2f4;
+  --color-brand-100: #fbe1e7;
+  --color-brand-200: #f6c2d0;
+  --color-brand-300: #ee8fa8;
+  --color-brand-400: #e35c81;
+  --color-brand-500: #dc3f68;
+  --color-brand-600: #b91c4f;
+  --color-brand-700: #93163f;
+  --color-brand-800: #781636;
+  --color-brand-900: #4f1226;
+}
+
+@utility safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+body {
+  background: var(--color-neutral-50);
+  color: var(--color-neutral-900);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+[data-theme="dark"] body {
+  background: var(--color-neutral-900);
+  color: var(--color-neutral-50);
+}
+
+/* native form controls (date picker icon, etc.) pick a light or dark rendering */
+[data-theme="dark"] input,
+[data-theme="dark"] select {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
