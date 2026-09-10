@@ -17,6 +17,7 @@ import { ThemeToggle, ThemeToggleIcon } from '@/components/ui/ThemeToggle'
 import { PaletteToggle } from '@/components/ui/PaletteToggle'
 import { cn } from '@/lib/utils'
 import { isAdminRole } from '@/lib/roles'
+import { KitchenComposer } from '@/components/KitchenComposer'
 
 const operationalNav = [
   { to: '/mesas', label: 'Mesas', icon: UtensilsCrossed },
@@ -54,6 +55,9 @@ export default function AppLayout() {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+          <div className="mb-2">
+            <KitchenComposer variant="sidebar" />
+          </div>
           {operationalNav.map((item) => (
             <SidebarLink key={item.to} {...item} />
           ))}
@@ -97,6 +101,7 @@ export default function AppLayout() {
           <span className="font-bold text-neutral-900 dark:text-neutral-50 tracking-tight text-sm">Miresta</span>
         </div>
         <div className="flex items-center gap-2.5">
+          <KitchenComposer variant="header" />
           <PaletteToggle />
           <ThemeToggleIcon />
           <button onClick={logout} className="text-neutral-400 dark:text-neutral-500 p-2 -mr-2">

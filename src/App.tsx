@@ -14,6 +14,7 @@ import TomarPedidoPage from '@/pages/pedido/TomarPedidoPage'
 import PedidoDetallePage from '@/pages/pedido/PedidoDetallePage'
 import ClientesPage from '@/pages/clientes/ClientesPage'
 import ClienteDetallePage from '@/pages/clientes/ClienteDetallePage'
+import CocinaPage from '@/pages/cocina/CocinaPage'
 import AdminHomePage from '@/pages/admin/AdminHomePage'
 import UsuariosPage from '@/pages/admin/UsuariosPage'
 import PreciosPage from '@/pages/admin/PreciosPage'
@@ -44,6 +45,8 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
 
           <Route element={<ProtectedRoute />}>
+            <Route path="/cocina" element={<CocinaPage />} />
+
             <Route element={<AppLayout />}>
               <Route path="/mesas" element={<MesasPage />} />
               <Route path="/pedidos" element={<PedidosPage />} />

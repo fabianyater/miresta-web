@@ -444,3 +444,10 @@ export interface TicketPreviewResponse {
   printed: boolean
   lines: TicketLineResponse[]
 }
+
+export interface KitchenMessageResponse {
+  id: number
+  text: string
+  sentBy: string
+  createdAt: string
+}
