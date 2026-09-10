@@ -15,6 +15,7 @@ import PedidoDetallePage from '@/pages/pedido/PedidoDetallePage'
 import ClientesPage from '@/pages/clientes/ClientesPage'
 import ClienteDetallePage from '@/pages/clientes/ClienteDetallePage'
 import CocinaPage from '@/pages/cocina/CocinaPage'
+import ConfigPage from '@/pages/config/ConfigPage'
 import AdminHomePage from '@/pages/admin/AdminHomePage'
 import UsuariosPage from '@/pages/admin/UsuariosPage'
 import PreciosPage from '@/pages/admin/PreciosPage'
@@ -56,6 +57,7 @@ export default function App() {
               <Route path="/pedido/:orderId" element={<PedidoDetallePage />} />
               <Route path="/clientes" element={<ClientesPage />} />
               <Route path="/clientes/:customerId" element={<ClienteDetallePage />} />
+              <Route path="/config" element={<ConfigPage />} />
 
               <Route element={<ProtectedRoute roles={['ADMIN', 'OWNER']} />}>
                 <Route path="/admin" element={<AdminHomePage />} />

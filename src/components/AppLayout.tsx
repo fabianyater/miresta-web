@@ -13,9 +13,8 @@ import {
   Printer,
   MessageSquare,
 } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
-import { ThemeToggle, ThemeToggleIcon } from '@/components/ui/ThemeToggle'
-import { PaletteToggle } from '@/components/ui/PaletteToggle'
 import { cn } from '@/lib/utils'
 import { isAdminRole } from '@/lib/roles'
 import { KitchenComposer } from '@/components/KitchenComposer'
@@ -76,21 +75,18 @@ export default function AppLayout() {
           )}
         </nav>
 
-        <div className="p-3 border-t border-neutral-100 dark:border-neutral-700 space-y-3">
-          <ThemeToggle />
-          <PaletteToggle />
-          <div>
-            <p className="px-3 text-xs text-neutral-400 dark:text-neutral-500 truncate mb-1">
-              {user?.displayName || user?.email}
-            </p>
-            <button
-              onClick={logout}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-            >
-              <LogOut size={16} />
-              Cerrar sesión
-            </button>
-          </div>
+        <div className="p-3 border-t border-neutral-100 dark:border-neutral-700 space-y-0.5">
+          <SidebarLink to="/config" label="Ajustes" icon={SlidersHorizontal} />
+          <p className="px-3 pt-2 text-xs text-neutral-400 dark:text-neutral-500 truncate">
+            {user?.displayName || user?.email}
+          </p>
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+          >
+            <LogOut size={16} />
+            Cerrar sesión
+          </button>
         </div>
       </aside>
 
@@ -102,10 +98,11 @@ export default function AppLayout() {
           </div>
           <span className="font-bold text-neutral-900 dark:text-neutral-50 tracking-tight text-sm">Miresta</span>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1">
           <KitchenComposer variant="header" />
-          <PaletteToggle />
-          <ThemeToggleIcon />
+          <NavLink to="/config" className="text-neutral-400 dark:text-neutral-500 p-2" aria-label="Ajustes">
+            <SlidersHorizontal size={18} />
+          </NavLink>
           <button onClick={logout} className="text-neutral-400 dark:text-neutral-500 p-2 -mr-2">
             <LogOut size={18} />
           </button>
