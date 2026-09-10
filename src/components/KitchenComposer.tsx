@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { MessageSquare, Send, Volume2 } from 'lucide-react'
 import { kitchenApi } from '@/api/kitchen'
@@ -16,6 +16,13 @@ export function KitchenComposer({ variant }: { variant: 'sidebar' | 'header' }) 
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
+
+  const { data: phrases } = useQuery({
+    queryKey: ['kitchen-phrases'],
+    queryFn: kitchenApi.getPhrases,
+    staleTime: 5 * 60 * 1000,
+  })
+  const quickPhrases = phrases && phrases.length > 0 ? phrases : KITCHEN_QUICK_PHRASES
 
   const send = useMutation({
     mutationFn: (message: string) => kitchenApi.send(message),
@@ -50,7 +57,7 @@ export function KitchenComposer({ variant }: { variant: 'sidebar' | 'header' }) 
       <Dialog open={open} onClose={() => setOpen(false)} title="Avisar a cocina">
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            {KITCHEN_QUICK_PHRASES.map((phrase) => (
+            {quickPhrases.map((phrase) => (
               <button
                 key={phrase}
                 disabled={send.isPending}

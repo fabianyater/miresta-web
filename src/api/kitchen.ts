@@ -12,4 +12,9 @@ export const kitchenApi = {
         params: since ? { since } : undefined,
       })
       .then((r) => r.data),
+
+  getPhrases: () => apiClient.get<string[]>('/api/kitchen/phrases').then((r) => r.data),
+
+  savePhrases: (phrases: string[]) =>
+    apiClient.put<string[]>('/api/kitchen/phrases', { phrases }).then((r) => r.data),
 }

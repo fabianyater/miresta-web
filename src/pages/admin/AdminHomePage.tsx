@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Users, Tag, Package, CalendarDays, BarChart3, Printer } from 'lucide-react'
+import { Users, Tag, Package, CalendarDays, BarChart3, Printer, MessageSquare } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 
 const sections = [
@@ -9,6 +9,7 @@ const sections = [
   { to: '/admin/menu', label: 'Menú del día', description: 'Configurar el menú', icon: CalendarDays },
   { to: '/admin/reportes', label: 'Reportes', description: 'Caja del día', icon: BarChart3 },
   { to: '/admin/impresora', label: 'Impresora', description: 'Configuración de red', icon: Printer },
+  { to: '/admin/frases-cocina', label: 'Frases de cocina', description: 'Botones de «Avisar a cocina»', icon: MessageSquare },
 ]
 
 export default function AdminHomePage() {

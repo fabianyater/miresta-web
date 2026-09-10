@@ -11,6 +11,7 @@ import {
   CalendarDays,
   BarChart3,
   Printer,
+  MessageSquare,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { ThemeToggle, ThemeToggleIcon } from '@/components/ui/ThemeToggle'
@@ -36,6 +37,7 @@ const desktopAdminNav = [
   { to: '/admin/menu', label: 'Menú del día', icon: CalendarDays },
   { to: '/admin/reportes', label: 'Reportes', icon: BarChart3 },
   { to: '/admin/impresora', label: 'Impresora', icon: Printer },
+  { to: '/admin/frases-cocina', label: 'Frases de cocina', icon: MessageSquare },
 ]
 
 export default function AppLayout() {
