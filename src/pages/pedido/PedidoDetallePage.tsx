@@ -42,10 +42,13 @@ function PaymentBuilder({
 }) {
   const [lines, setLines] = useState<{ paymentTypeId: number; name: string; amount: string }[]>([])
 
-  const sum = lines.reduce((s, l) => s + (Number(l.amount) || 0), 0)
+  const paidLines = lines.filter((l) => (Number(l.amount) || 0) > 0)
+  const sum = paidLines.reduce((s, l) => s + (Number(l.amount) || 0), 0)
   const remaining = total - sum
+  const change = sum - total
   const availableTypes = (paymentTypes ?? []).filter((pt) => !lines.some((l) => l.paymentTypeId === pt.id))
-  const canSubmit = lines.length > 0 && remaining === 0 && !submitting
+  // Cuadra exacto o el cliente paga de más (se le da el cambio) — solo falta bloquea.
+  const canSubmit = paidLines.length > 0 && remaining <= 0 && !submitting
 
   const addLine = (pt: PaymentTypeResponse) =>
     setLines((prev) => [...prev, { paymentTypeId: pt.id, name: pt.name, amount: String(Math.max(remaining, 0)) }])
@@ -98,18 +101,17 @@ function PaymentBuilder({
       )}
 
       {lines.length > 0 && (
-        <p
-          className={cn(
-            'text-sm font-medium mb-3',
-            remaining === 0 ? 'text-status-free' : 'text-status-busy',
+        <div className="mb-3">
+          {remaining > 0 ? (
+            <p className="text-sm font-medium text-status-busy">Falta {formatMoney(remaining)}</p>
+          ) : remaining === 0 ? (
+            <p className="text-sm font-medium text-status-free">Cuadra exacto</p>
+          ) : (
+            <p className="text-base font-semibold text-status-free">
+              Cambio a devolver: {formatMoney(change)}
+            </p>
           )}
-        >
-          {remaining === 0
-            ? 'Cuadra exacto'
-            : remaining > 0
-              ? `Falta ${formatMoney(remaining)}`
-              : `Sobran ${formatMoney(-remaining)}`}
-        </p>
+        </div>
       )}
 
       <Button
@@ -117,7 +119,7 @@ function PaymentBuilder({
         disabled={!canSubmit}
         loading={submitting}
         onClick={() =>
-          onSubmit(lines.map((l) => ({ paymentTypeId: l.paymentTypeId, amount: Number(l.amount) || 0 })))
+          onSubmit(paidLines.map((l) => ({ paymentTypeId: l.paymentTypeId, amount: Number(l.amount) || 0 })))
         }
       >
         {submitLabel}
@@ -296,8 +298,11 @@ export default function PedidoDetallePage() {
   const cobrar = useMutation({
     mutationFn: (payments: PaymentLine[]) =>
       ordersApi.updateStatus(Number(orderId), { status: 'COMPLETED', payments }),
-    onSuccess: () => {
-      toast.success('Pedido cobrado')
+    onSuccess: (result) => {
+      toast.success(
+        'Pedido cobrado',
+        result && result.change > 0 ? { description: `Cambio a devolver: ${formatMoney(result.change)}` } : undefined,
+      )
       queryClient.invalidateQueries({ queryKey: ['tables'] })
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       setShowCobrar(false)
@@ -327,8 +332,11 @@ export default function PedidoDetallePage() {
 
   const pagarCuenta = useMutation({
     mutationFn: (payments: PaymentLine[]) => ordersApi.payOrder(Number(orderId), { payments }),
-    onSuccess: () => {
-      toast.success('Pedido pagado')
+    onSuccess: (result) => {
+      toast.success(
+        'Pedido pagado',
+        result && result.change > 0 ? { description: `Cambio a devolver: ${formatMoney(result.change)}` } : undefined,
+      )
       queryClient.invalidateQueries({ queryKey: ['order', orderId] })
       if (order?.customer) {
         queryClient.invalidateQueries({ queryKey: ['orders-customer', order.customer.id] })
@@ -382,7 +390,10 @@ export default function PedidoDetallePage() {
           <Badge variant={isCompleted ? 'done' : 'pending'}>{order.orderStatus.name}</Badge>
         )}
       </div>
-      <p className={cn('text-sm text-neutral-500', distinctCustomers.length > 0 ? 'mb-1' : 'mb-5')}>Pedido #{order.id}</p>
+      <p className={cn('text-sm text-neutral-500', distinctCustomers.length > 0 ? 'mb-1' : 'mb-5')}>
+        Pedido #{order.id}
+        {order.waiterName && ` · ${order.waiterName}`}
+      </p>
       {distinctCustomers.length === 1 && (
         <p className="text-sm text-neutral-500 flex items-center gap-1.5 mb-5">
           <User size={13} />

@@ -6,6 +6,7 @@ import type {
   OrderDetailsResponse,
   OrdersResponse,
   PayOrderRequest,
+  PaymentResultResponse,
   PaymentTotalResponse,
   SettleTabRequest,
   SettleTabResponse,
@@ -28,10 +29,12 @@ export const ordersApi = {
     apiClient.get<OrderDetailsResponse | null>(`/api/orders/pending/${tableId}`).then((r) => r.data),
 
   updateStatus: (orderId: number, data: UpdateStatusRequest) =>
-    apiClient.patch(`/api/orders/${orderId}/status`, data).then((r) => r.data),
+    apiClient
+      .patch<PaymentResultResponse | null>(`/api/orders/${orderId}/status`, data)
+      .then((r) => r.data || null),
 
   payOrder: (orderId: number, data: PayOrderRequest) =>
-    apiClient.patch(`/api/orders/${orderId}/pay`, data).then((r) => r.data),
+    apiClient.patch<PaymentResultResponse>(`/api/orders/${orderId}/pay`, data).then((r) => r.data),
 
   fiarCliente: (orderId: number, customerId: number) =>
     apiClient

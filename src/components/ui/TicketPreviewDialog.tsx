@@ -16,12 +16,19 @@ export function TicketPreviewDialog({
     <Dialog open={!!preview} onClose={onClose} title={preview ? `Vista previa: ${preview.title}` : 'Vista previa'}>
       {preview && (
         <>
-          <div className="bg-white text-black rounded-lg border border-neutral-200 shadow-inner mx-auto max-w-[280px] p-4 font-mono text-[11px] leading-relaxed">
+          <div className="bg-white text-black rounded-lg border border-neutral-200 shadow-inner mx-auto max-w-[280px] p-4 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-words">
             {preview.lines.map((line, i) =>
               line.rule ? (
                 <div key={i}>{'-'.repeat(32)}</div>
               ) : (
-                <div key={i} className={cn(line.center && 'text-center', line.bold && 'font-bold')}>
+                <div
+                  key={i}
+                  className={cn(
+                    line.center && 'text-center',
+                    (line.bold || line.big) && 'font-bold',
+                    line.big && 'text-sm tracking-tight my-1',
+                  )}
+                >
                   {line.text || ' '}
                 </div>
               ),

@@ -74,7 +74,9 @@ export default function AppLayout() {
           <ThemeToggle />
           <PaletteToggle />
           <div>
-            <p className="px-3 text-xs text-neutral-400 dark:text-neutral-500 truncate mb-1">{user?.email}</p>
+            <p className="px-3 text-xs text-neutral-400 dark:text-neutral-500 truncate mb-1">
+              {user?.displayName || user?.email}
+            </p>
             <button
               onClick={logout}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"

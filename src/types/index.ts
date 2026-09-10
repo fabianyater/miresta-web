@@ -42,24 +42,33 @@ export type PriceCode =
 export interface LoginResponse {
   token: string
   email: string
+  name: string
+  displayName: string
   role: Role
 }
 
 export interface UserResponse {
   id: number
   email: string
+  name: string
+  displayName: string
   role: Role
   active: boolean
 }
 
 export interface CreateUserRequest {
   email: string
+  name: string
+  // Opcional — el backend lo deriva del nombre completo si no se envía.
+  displayName?: string
   password: string
   role: Role
 }
 
 export interface UpdateUserRequest {
   email?: string
+  name?: string
+  displayName?: string
   password?: string
   role?: Role
   active?: boolean
@@ -264,6 +273,7 @@ export interface OrdersResponse {
   paymentType: PaymentTypeResponse | null
   paid: boolean
   payments: OrderPaymentResponse[]
+  waiterName: string
 }
 
 export interface OrderDetailsResponse extends OrdersResponse {
@@ -338,6 +348,14 @@ export interface DailyReportResponse {
 
 export interface PayOrderRequest {
   payments: PaymentLine[]
+}
+
+// Resultado de cobrar. `change` es el vuelto a devolver cuando el cliente pagó de
+// más; 0 si pagó justo. En caja siempre queda `total`, no `tendered`.
+export interface PaymentResultResponse {
+  total: number
+  tendered: number
+  change: number
 }
 
 export interface SettleTabRequest {
@@ -415,6 +433,8 @@ export interface TicketLineResponse {
   bold: boolean
   center: boolean
   rule: boolean
+  // Título del ticket — se muestra más grande en la vista previa.
+  big: boolean
 }
 
 // printed=false: no había impresora activada, esto es solo la vista previa de lo que

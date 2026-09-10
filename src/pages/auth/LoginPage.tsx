@@ -33,7 +33,12 @@ export default function LoginPage() {
   const mutation = useMutation({
     mutationFn: authApi.login,
     onSuccess: (data) => {
-      login(data.token, { email: data.email, role: data.role })
+      login(data.token, {
+        email: data.email,
+        name: data.name,
+        displayName: data.displayName,
+        role: data.role,
+      })
       navigate('/mesas')
     },
     onError: (e) => {

@@ -4,6 +4,8 @@ import type { Role } from '@/types'
 
 interface AuthUser {
   email: string
+  name: string
+  displayName: string
   role: Role
 }
 

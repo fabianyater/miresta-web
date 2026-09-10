@@ -198,6 +198,7 @@ export default function PedidosPage() {
                   <div className="mt-1 flex items-center gap-1.5 justify-end">
                     {tab === 'PARA_LLEVAR' && <ParaLlevarBadge />}
                     <Badge variant="pending">Pendiente</Badge>
+                    {order.waiterName && <Badge variant="neutral">{order.waiterName}</Badge>}
                   </div>
                 </div>
               </Card>

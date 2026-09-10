@@ -27,11 +27,15 @@ export default function UsuariosPage() {
   const currentIsOwner = useAuthStore((s) => s.user?.role === 'OWNER')
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<Role>('MESERO')
 
   const [editing, setEditing] = useState<UserResponse | null>(null)
   const [editEmail, setEditEmail] = useState('')
+  const [editName, setEditName] = useState('')
+  const [editDisplayName, setEditDisplayName] = useState('')
   const [editPassword, setEditPassword] = useState('')
   const [editRole, setEditRole] = useState<Role>('MESERO')
 
@@ -43,12 +47,15 @@ export default function UsuariosPage() {
   })
 
   const createUser = useMutation({
-    mutationFn: () => usersApi.createUser({ email, password, role }),
+    mutationFn: () =>
+      usersApi.createUser({ email, name, displayName: displayName.trim() || undefined, password, role }),
     onSuccess: () => {
       toast.success('Usuario creado')
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setOpen(false)
       setEmail('')
+      setName('')
+      setDisplayName('')
       setPassword('')
       setRole('MESERO')
     },
@@ -66,6 +73,10 @@ export default function UsuariosPage() {
       if (!editing) throw new Error('no user selected')
       return usersApi.updateUser(editing.id, {
         email: editEmail,
+        name: editName,
+        // Se envía tal cual (incluso vacío): el backend lo vuelve a derivar del
+        // nombre completo cuando queda en blanco.
+        displayName: editDisplayName,
         password: editPassword || undefined,
         role: editing.email.toLowerCase() === currentEmail?.toLowerCase() ? undefined : editRole,
       })
@@ -130,9 +141,10 @@ export default function UsuariosPage() {
               <Card key={u.id} className="p-3.5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50 truncate">
-                    {u.email}
+                    {u.name || u.email}
                     {isSelf && <span className="text-neutral-400 font-normal"> (tú)</span>}
                   </p>
+                  <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate">{u.email}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <Badge variant={roleBadgeVariant[u.role]}>{u.role}</Badge>
                     <Badge variant={u.active ? 'free' : 'done'}>{u.active ? 'Activo' : 'Inactivo'}</Badge>
@@ -143,6 +155,8 @@ export default function UsuariosPage() {
                     onClick={() => {
                       setEditing(u)
                       setEditEmail(u.email)
+                      setEditName(u.name)
+                      setEditDisplayName(u.displayName)
                       setEditPassword('')
                       setEditRole(u.role)
                     }}
@@ -180,15 +194,25 @@ export default function UsuariosPage() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault()
-            if (email && password) createUser.mutate()
+            if (email && password && name.trim()) createUser.mutate()
           }}
         >
+          <Input
+            placeholder="Nombre completo"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+          <Input
+            placeholder="Nombre corto para la comanda (opcional)"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
           <Input
             type="email"
             placeholder="Correo"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            autoFocus
           />
           <Input
             type="password"
@@ -204,7 +228,12 @@ export default function UsuariosPage() {
           {!currentIsOwner && (
             <p className="text-xs text-neutral-400">Solo el owner puede crear usuarios admin.</p>
           )}
-          <Button type="submit" className="w-full" disabled={!email || !password} loading={createUser.isPending}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={!email || !password || !name.trim()}
+            loading={createUser.isPending}
+          >
             Crear usuario
           </Button>
         </form>
@@ -216,15 +245,25 @@ export default function UsuariosPage() {
             className="space-y-3"
             onSubmit={(e) => {
               e.preventDefault()
-              if (editEmail) editUser.mutate()
+              if (editEmail && editName.trim()) editUser.mutate()
             }}
           >
+            <Input
+              placeholder="Nombre completo"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              autoFocus
+            />
+            <Input
+              placeholder="Nombre corto para la comanda (opcional)"
+              value={editDisplayName}
+              onChange={(e) => setEditDisplayName(e.target.value)}
+            />
             <Input
               type="email"
               placeholder="Correo"
               value={editEmail}
               onChange={(e) => setEditEmail(e.target.value)}
-              autoFocus
             />
             <Input
               type="password"
@@ -246,7 +285,12 @@ export default function UsuariosPage() {
             ) : (
               !currentIsOwner && <p className="text-xs text-neutral-400">Solo el owner puede cambiar roles.</p>
             )}
-            <Button type="submit" className="w-full" disabled={!editEmail} loading={editUser.isPending}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={!editEmail || !editName.trim()}
+              loading={editUser.isPending}
+            >
               Guardar
             </Button>
           </form>

@@ -328,7 +328,7 @@ export default function TomarPedidoPage() {
       await ordersApi.createOrder({
         tableId: tableId ? Number(tableId) : null,
         // Cada plato trae su propio cliente — el de aquí ya no aplica a todo el envío.
-        customerId: null,
+        customerId: customer?.id ? Number(customer.id) : null,
         orders: [...staged, ...current],
       })
 
