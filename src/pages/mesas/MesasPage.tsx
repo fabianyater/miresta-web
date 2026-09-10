@@ -14,6 +14,7 @@ import { toast } from '@/store/toast'
 import { cn } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/apiErrors'
 import { isAdminRole } from '@/lib/roles'
+import { StockAlert } from '@/components/StockAlert'
 
 export default function MesasPage() {
   const navigate = useNavigate()
@@ -63,6 +64,7 @@ export default function MesasPage() {
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
+      <StockAlert />
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-neutral-900 dark:text-neutral-50 tracking-tight">Mesas</h1>

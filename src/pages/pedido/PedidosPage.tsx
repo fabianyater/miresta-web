@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { StockAlert } from '@/components/StockAlert'
 import { cn, formatDateTime, formatMoney, paymentSummary, todayIso } from '@/lib/utils'
 import type { OrdersResponse } from '@/types'
 
@@ -104,6 +105,8 @@ export default function PedidosPage() {
     <div className="max-w-2xl mx-auto p-4 md:p-8">
       <h1 className="text-xl md:text-2xl font-bold text-neutral-900 dark:text-neutral-50 tracking-tight mb-1">Pedidos</h1>
       <p className="text-sm text-neutral-500 mb-5">Pedidos activos, en el orden en que llegaron</p>
+
+      <StockAlert />
 
       <div className="flex gap-2 mb-5">
         {TABS.map((t) => (
