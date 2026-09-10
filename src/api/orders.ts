@@ -2,6 +2,7 @@ import { apiClient } from './client'
 import type {
   CreateOrderRequest,
   CustomerBalanceResponse,
+  CustomerPaymentResponse,
   DailyReportResponse,
   OrderDetailsResponse,
   OrdersResponse,
@@ -46,6 +47,11 @@ export const ordersApi = {
 
   getCustomerBalances: () =>
     apiClient.get<CustomerBalanceResponse[]>('/api/orders/customers/balances').then((r) => r.data),
+
+  getCustomerPayments: (customerId: number) =>
+    apiClient
+      .get<CustomerPaymentResponse[]>(`/api/orders/customers/${customerId}/payments`)
+      .then((r) => r.data),
 
   getPaymentTotals: (date: string) =>
     apiClient

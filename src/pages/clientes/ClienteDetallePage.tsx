@@ -1,7 +1,17 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Phone, Wallet, ReceiptText, Pencil, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Phone,
+  Wallet,
+  ReceiptText,
+  Pencil,
+  Archive,
+  ArchiveRestore,
+  Trash2,
+  CheckCircle2,
+} from 'lucide-react'
 import { customersApi } from '@/api/customers'
 import { ordersApi } from '@/api/orders'
 import { paymentTypesApi } from '@/api/paymentTypes'
@@ -46,6 +56,11 @@ export default function ClienteDetallePage() {
     enabled: showPagar,
   })
 
+  const { data: payments } = useQuery({
+    queryKey: ['customer-payments', id],
+    queryFn: () => ordersApi.getCustomerPayments(id),
+  })
+
   const pendingOrders = (orders ?? []).filter((o) => o.orderStatus.name === 'COMPLETED' && !o.paid)
   const balance = pendingOrders.reduce((sum, o) => sum + o.total, 0)
 
@@ -60,6 +75,7 @@ export default function ClienteDetallePage() {
     onSuccess: (data) => {
       toast.success(`Cuenta pagada: ${data.ordersSettled} pedido(s), ${formatMoney(data.totalPaid)}`)
       queryClient.invalidateQueries({ queryKey: ['orders-customer', id] })
+      queryClient.invalidateQueries({ queryKey: ['customer-payments', id] })
       queryClient.invalidateQueries({ queryKey: ['customer-balances'] })
       setShowPagar(false)
     },
@@ -191,6 +207,71 @@ export default function ClienteDetallePage() {
           </Button>
         )}
       </Card>
+
+      {pendingOrders.length > 0 && (
+        <>
+          <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-2">Pendiente de pago</h2>
+          <div className="space-y-2 mb-6">
+            {pendingOrders.map((order) => (
+              <button
+                key={order.id}
+                onClick={() => navigate(`/pedido/${order.id}`)}
+                className="w-full text-left"
+              >
+                <Card className="p-3.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                      Pedido #{order.id} · {order.diningTable ? `Mesa ${order.diningTable.number}` : 'Para llevar'}
+                    </p>
+                    <p className="text-xs text-neutral-500">{formatDateTime(order.createdAt)}</p>
+                  </div>
+                  <p className="text-sm font-bold text-neutral-900 dark:text-neutral-50 flex-shrink-0">
+                    {formatMoney(order.total)}
+                  </p>
+                </Card>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {payments && payments.length > 0 && (
+        <>
+          <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-2">Pagos realizados</h2>
+          <div className="space-y-2 mb-6">
+            {payments.map((p, i) => (
+              <Card key={i} className="p-3.5">
+                <div className="flex items-center justify-between gap-3 mb-1.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CheckCircle2 size={16} className="text-status-free flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                        {formatMoney(p.total)} · {p.paymentTypeName}
+                      </p>
+                      <p className="text-xs text-neutral-500">{formatDateTime(p.paidAt)}</p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-neutral-400 flex-shrink-0">
+                    {p.orders.length} pedido{p.orders.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <div className="pl-6 space-y-0.5">
+                  {p.orders.map((o) => (
+                    <button
+                      key={o.orderId}
+                      onClick={() => navigate(`/pedido/${o.orderId}`)}
+                      className="block text-xs text-neutral-500 hover:text-brand-600 dark:hover:text-brand-400"
+                    >
+                      Pedido #{o.orderId} ·{' '}
+                      {o.diningTable ? `Mesa ${o.diningTable.number}` : 'Para llevar'} · {formatMoney(o.amount)}
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
 
       <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-2">Historial de pedidos</h2>
       <div className="space-y-2">

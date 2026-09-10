@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { MessageSquare, Send, Volume2 } from 'lucide-react'
+import { MessageSquare, Send, Volume2, Mic } from 'lucide-react'
 import { kitchenApi } from '@/api/kitchen'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/store/toast'
 import { getApiErrorMessage } from '@/lib/apiErrors'
 import { KITCHEN_QUICK_PHRASES } from '@/lib/kitchenPhrases'
+import { useDictation } from '@/lib/useDictation'
 import { cn } from '@/lib/utils'
 
 /** Botón fijo (barra lateral en desktop, barra superior en móvil) para mandar un
@@ -23,6 +24,8 @@ export function KitchenComposer({ variant }: { variant: 'sidebar' | 'header' }) 
     staleTime: 5 * 60 * 1000,
   })
   const quickPhrases = phrases && phrases.length > 0 ? phrases : KITCHEN_QUICK_PHRASES
+
+  const dictation = useDictation(setText)
 
   const send = useMutation({
     mutationFn: (message: string) => kitchenApi.send(message),
@@ -74,22 +77,43 @@ export function KitchenComposer({ variant }: { variant: 'sidebar' | 'header' }) 
           </div>
 
           <form
-            className="flex gap-2"
             onSubmit={(e) => {
               e.preventDefault()
               if (text.trim()) send.mutate(text.trim())
             }}
           >
-            <input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Otro mensaje…"
-              maxLength={200}
-              className="flex-1 rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-neutral-900 dark:text-neutral-50 outline-none focus:border-brand-400"
-            />
-            <Button type="submit" disabled={!text.trim()} loading={send.isPending}>
-              <Send size={16} />
-            </Button>
+            <div className="flex gap-2">
+              <input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={dictation.listening ? 'Escuchando…' : 'Otro mensaje…'}
+                maxLength={200}
+                className="flex-1 rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-neutral-900 dark:text-neutral-50 outline-none focus:border-brand-400"
+              />
+              {dictation.supported && (
+                <button
+                  type="button"
+                  onClick={dictation.toggle}
+                  aria-label="Dictar por voz"
+                  className={cn(
+                    'w-10 flex items-center justify-center rounded-lg border flex-shrink-0',
+                    dictation.listening
+                      ? 'border-red-400 text-red-500 animate-pulse'
+                      : 'border-neutral-200 dark:border-neutral-600 text-neutral-500 hover:text-brand-600 dark:hover:text-brand-400',
+                  )}
+                >
+                  <Mic size={16} />
+                </button>
+              )}
+              <Button type="submit" disabled={!text.trim()} loading={send.isPending}>
+                <Send size={16} />
+              </Button>
+            </div>
+            {dictation.supported && (
+              <p className="text-xs text-neutral-400 mt-1.5">
+                {dictation.listening ? 'Habla ahora, se transcribe al texto.' : 'También puedes dictar por voz con el micrófono.'}
+              </p>
+            )}
           </form>
 
           <button

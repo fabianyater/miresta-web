@@ -374,6 +374,18 @@ export interface CustomerBalanceResponse {
   totalOwed: number
 }
 
+export interface CustomerPaymentResponse {
+  paidAt: string
+  paymentTypeName: string
+  total: number
+  orders: {
+    orderId: number
+    createdAt: string
+    amount: number
+    diningTable: DiningTableResponse | null
+  }[]
+}
+
 export interface CustomerResponse {
   id: number
   name: string
