@@ -92,8 +92,6 @@ export interface ProductInfo {
 }
 
 export interface ProductDetailsInfo {
-  expirationDate: string | null
-  quantity: number | null
   price: number
 }
 
@@ -107,9 +105,6 @@ export interface ProductWithDetails {
 export interface ProductRequest {
   name: string
   categoryId: number
-  expirationDate: string | null
-  quantity: number | null
-  unitPrice: number | null
 }
 
 export interface ProductDetailResponse {
@@ -118,8 +113,6 @@ export interface ProductDetailResponse {
   categoryId: number
   categoryName: string
   actsAsCategory: ComboCategory | null
-  expirationDate: string | null
-  quantity: number | null
   unitPrice: number | null
 }
 
@@ -127,9 +120,23 @@ export interface UpdateProductRequest {
   name: string
   categoryId: number
   actsAsCategory: ComboCategory | null
-  expirationDate: string | null
-  quantity: number | null
   unitPrice: number | null
+}
+
+// Un lote recibido de un producto — su propia cantidad y vencimiento, independiente
+// de cualquier otro lote del mismo producto (a diferencia del viejo campo único que
+// se sobreescribía en cada edición, esto sí lleva historial).
+export interface ProductBatchRequest {
+  quantity: number
+  expirationDate: string | null
+}
+
+export interface ProductBatchResponse {
+  id: number
+  quantityReceived: number
+  quantityRemaining: number
+  expirationDate: string | null
+  receivedAt: string
 }
 
 export interface ProductWithIdAndQuantity {
@@ -231,6 +238,18 @@ export interface OrderItemResponse {
   itemsByCategory: GroupedOrderItemResponse[]
 }
 
+// Una línea de pago (ej. $20.000 en efectivo) — un pedido puede tener varias si se
+// pagó dividido entre métodos.
+export interface PaymentLine {
+  paymentTypeId: number
+  amount: number
+}
+
+export interface OrderPaymentResponse {
+  paymentTypeName: string
+  amount: number
+}
+
 export interface OrdersResponse {
   id: number
   createdAt: string
@@ -240,8 +259,11 @@ export interface OrdersResponse {
   diningTable: DiningTableResponse | null
   orderStatus: OrderStatusDto
   customer: CustomerResponse | null
+  // Solo viene lleno si se pagó con un único método — con pago dividido queda null y
+  // el desglose real está en `payments`.
   paymentType: PaymentTypeResponse | null
   paid: boolean
+  payments: OrderPaymentResponse[]
 }
 
 export interface OrderDetailsResponse extends OrdersResponse {
@@ -251,7 +273,9 @@ export interface OrderDetailsResponse extends OrdersResponse {
 export interface OrderRequest {
   items: ProductWithIdAndQuantity[]
   mealType: string
-  menuId: number
+  // null cuando no hay menú configurado hoy para este tipo de comida — válido igual
+  // si el plato es solo bebidas, que no dependen del menú del día.
+  menuId: number | null
   isToGo: boolean
   count: number | null
   comments: string | null
@@ -268,7 +292,7 @@ export interface CreateOrderRequest {
 
 export interface UpdateStatusRequest {
   status: string
-  paymentTypeId: number | null
+  payments: PaymentLine[] | null
 }
 
 export interface PaymentTypeResponse {
@@ -313,7 +337,7 @@ export interface DailyReportResponse {
 }
 
 export interface PayOrderRequest {
-  paymentTypeId: number
+  payments: PaymentLine[]
 }
 
 export interface SettleTabRequest {
@@ -378,8 +402,25 @@ export interface PriceSettingHistoryResponse {
 
 export interface PrinterSettingResponse {
   printerName: string
+  printingEnabled: boolean
 }
 
 export interface UpdatePrinterSettingRequest {
   printerName: string
+  printingEnabled: boolean
+}
+
+export interface TicketLineResponse {
+  text: string
+  bold: boolean
+  center: boolean
+  rule: boolean
+}
+
+// printed=false: no había impresora activada, esto es solo la vista previa de lo que
+// se habría impreso.
+export interface TicketPreviewResponse {
+  title: string
+  printed: boolean
+  lines: TicketLineResponse[]
 }

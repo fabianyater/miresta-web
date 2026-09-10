@@ -9,8 +9,10 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { BackLink } from '@/components/ui/BackLink'
+import { TicketPreviewDialog } from '@/components/ui/TicketPreviewDialog'
 import { toast } from '@/store/toast'
 import { formatMoney, todayIso } from '@/lib/utils'
+import type { TicketPreviewResponse } from '@/types'
 
 const MEAL_TYPE_LABELS: Record<string, string> = {
   DESAYUNO: 'Desayuno',
@@ -23,6 +25,7 @@ const CHART_TOOLTIP_STYLE = { background: '#211e1a', color: '#faf9f6', border: '
 
 export default function ReportesPage() {
   const [date, setDate] = useState(todayIso())
+  const [ticketPreview, setTicketPreview] = useState<TicketPreviewResponse | null>(null)
 
   const { data: totals, isLoading: loadingTotals } = useQuery({
     queryKey: ['payment-totals', date],
@@ -36,7 +39,10 @@ export default function ReportesPage() {
 
   const printResumen = useMutation({
     mutationFn: () => printingApi.printResumen(date),
-    onSuccess: () => toast.success('Resumen enviado a la impresora'),
+    onSuccess: (preview) => {
+      if (preview.printed) toast.success('Resumen enviado a la impresora')
+      else setTicketPreview(preview)
+    },
     onError: () => toast.error('No se pudo imprimir', { description: 'Revisa la impresora en Admin.' }),
   })
 
@@ -221,6 +227,8 @@ export default function ReportesPage() {
           </p>
         </>
       )}
+
+      <TicketPreviewDialog preview={ticketPreview} onClose={() => setTicketPreview(null)} />
     </div>
   )
 }

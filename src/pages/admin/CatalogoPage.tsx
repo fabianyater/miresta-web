@@ -1,21 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  Search,
-  Soup,
-  Wheat,
-  Beef,
-  Salad,
-  PlusCircle,
-  CupSoda,
-  Star,
-  Package,
-  LayoutGrid,
-  type LucideIcon,
-} from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Package, LayoutGrid } from 'lucide-react'
 import { catalogApi } from '@/api/catalog'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -24,133 +9,11 @@ import { Select } from '@/components/ui/Select'
 import { Dialog } from '@/components/ui/Dialog'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { BackLink } from '@/components/ui/BackLink'
+import { CategoryChip, CategoryRow } from '@/components/ui/CategoryNav'
+import { ROLE_ICONS, ROLE_OPTIONS } from '@/lib/comboCategoryUi'
 import { toast } from '@/store/toast'
 import { getApiErrorMessage } from '@/lib/apiErrors'
-import { cn } from '@/lib/utils'
 import type { CategoryResponse, ComboCategory, ProductDetailResponse, ProductInfo } from '@/types'
-
-const ROLE_LABELS: Record<ComboCategory, string> = {
-  SOPA: 'Sopa',
-  PRINCIPIO: 'Principio',
-  PROTEINA: 'Proteína',
-  ACOMPANANTE: 'Acompañante',
-  ADICIONAL: 'Adicional',
-  BEBIDA: 'Bebida',
-  ESPECIAL: 'Especial',
-  ENVASE: 'Envase',
-}
-
-const ROLE_ICONS: Record<ComboCategory, LucideIcon> = {
-  SOPA: Soup,
-  PRINCIPIO: Wheat,
-  PROTEINA: Beef,
-  ACOMPANANTE: Salad,
-  ADICIONAL: PlusCircle,
-  BEBIDA: CupSoda,
-  ESPECIAL: Star,
-  ENVASE: Package,
-}
-
-const ROLE_OPTIONS = Object.entries(ROLE_LABELS) as [ComboCategory, string][]
-
-function CategoryChip({
-  icon: Icon,
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  icon: LucideIcon
-  label: string
-  count: number
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 border transition-colors',
-        active
-          ? 'bg-brand-500 border-brand-500 text-white'
-          : 'bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300',
-      )}
-    >
-      <Icon size={14} />
-      {label}
-      <span className={cn('text-[10px]', active ? 'text-white/80' : 'text-neutral-400')}>{count}</span>
-    </button>
-  )
-}
-
-function CategoryRow({
-  icon: Icon,
-  label,
-  count,
-  active,
-  onClick,
-  onEdit,
-  onDelete,
-}: {
-  icon: LucideIcon
-  label: string
-  count: number
-  active: boolean
-  onClick: () => void
-  onEdit?: () => void
-  onDelete?: () => void
-}) {
-  return (
-    <div
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-2 rounded-xl px-2.5 py-2 cursor-pointer transition-colors border',
-        active
-          ? 'bg-brand-50 dark:bg-brand-500/15 border-brand-300 dark:border-brand-500/40'
-          : 'bg-white dark:bg-neutral-800 border-transparent hover:bg-neutral-50 dark:hover:bg-neutral-700',
-      )}
-    >
-      <div
-        className={cn(
-          'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
-          active
-            ? 'bg-brand-500 text-white'
-            : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400',
-        )}
-      >
-        <Icon size={15} />
-      </div>
-      <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200 truncate flex-1">{label}</span>
-      <span className="text-xs text-neutral-400 flex-shrink-0">{count}</span>
-      {(onEdit || onDelete) && (
-        <div className="flex items-center gap-0.5 flex-shrink-0">
-          {onEdit && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onEdit()
-              }}
-              className="w-6 h-6 flex items-center justify-center rounded text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400"
-            >
-              <Pencil size={13} />
-            </button>
-          )}
-          {onDelete && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete()
-              }}
-              className="w-6 h-6 flex items-center justify-center rounded text-neutral-400 hover:text-red-500"
-            >
-              <Trash2 size={13} />
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
 
 /** Fetches the full product record before showing the edit form — split this way
  * (wrapper fetches, inner form initializes its state straight from props) so the
@@ -203,8 +66,6 @@ function EditProductForm({
   const [name, setName] = useState(product.name)
   const [categoryId, setCategoryId] = useState(String(product.categoryId))
   const [actsAs, setActsAs] = useState<ComboCategory | ''>(product.actsAsCategory ?? '')
-  const [expirationDate, setExpirationDate] = useState(product.expirationDate ?? '')
-  const [quantity, setQuantity] = useState(product.quantity != null ? String(product.quantity) : '')
   const [unitPrice, setUnitPrice] = useState(product.unitPrice != null ? String(product.unitPrice) : '')
 
   const update = useMutation({
@@ -213,8 +74,6 @@ function EditProductForm({
         name,
         categoryId: Number(categoryId),
         actsAsCategory: actsAs || null,
-        expirationDate: expirationDate || null,
-        quantity: quantity ? Number(quantity) : null,
         unitPrice: unitPrice ? Number(unitPrice) : null,
       }),
     onSuccess: () => {
@@ -225,69 +84,171 @@ function EditProductForm({
   })
 
   return (
-    <form
-      className="space-y-3"
-      onSubmit={(e) => {
-        e.preventDefault()
-        if (name && categoryId) update.mutate()
-      }}
-    >
-      <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-      <div>
-        <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">
-          Categoría
-        </label>
-        <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
-      </div>
-      <div>
-        <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">
-          Rol de reemplazo (opcional)
-        </label>
-        <Select value={actsAs} onChange={(e) => setActsAs(e.target.value as ComboCategory | '')}>
-          <option value="">Ninguno — usa la categoría tal cual</option>
-          {ROLE_OPTIONS.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </Select>
-        <p className="text-xs text-neutral-400 mt-1">
-          Para casos como el huevo: aunque esté en Adicionales, puede "actuar como" Principio en el precio.
-        </p>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
+    <div className="space-y-4">
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (name && categoryId) update.mutate()
+        }}
+      >
+        <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
         <div>
           <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">
-            Vencimiento
+            Categoría
           </label>
-          <Input type="date" value={expirationDate} onChange={(e) => setExpirationDate(e.target.value)} />
+          <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
         </div>
         <div>
           <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">
-            Cantidad
+            Rol de reemplazo (opcional)
           </label>
-          <Input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+          <Select value={actsAs} onChange={(e) => setActsAs(e.target.value as ComboCategory | '')}>
+            <option value="">Ninguno — usa la categoría tal cual</option>
+            {ROLE_OPTIONS.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-neutral-400 mt-1">
+            Para casos como el huevo: aunque esté en Adicionales, puede "actuar como" Principio en el precio.
+          </p>
         </div>
+        <div>
+          <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">
+            Precio unitario (referencia, no el de venta)
+          </label>
+          <Input type="number" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
+          <p className="text-xs text-neutral-400 mt-1">
+            Solo informativo/de inventario — lo que cobras de verdad se define en Precios, por categoría.
+          </p>
+        </div>
+        <Button type="submit" className="w-full" disabled={!name || !categoryId} loading={update.isPending}>
+          Guardar
+        </Button>
+      </form>
+
+      <ProductBatchesSection productId={product.id} />
+    </div>
+  )
+}
+
+/** Historial de lotes de un producto — cada uno con su propia cantidad y
+ * vencimiento, independiente de los demás. Al agregar uno nuevo, el anterior no se
+ * pierde: queda abajo en la lista, y el que primero vence es el que se descuenta
+ * primero cuando se pide (FIFO por vencimiento, en el backend). */
+function ProductBatchesSection({ productId }: { productId: number }) {
+  const queryClient = useQueryClient()
+  const [newQuantity, setNewQuantity] = useState('')
+  const [newExpiration, setNewExpiration] = useState('')
+
+  const { data: batches, isLoading } = useQuery({
+    queryKey: ['product-batches', productId],
+    queryFn: () => catalogApi.getBatches(productId),
+  })
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['product-batches', productId] })
+    queryClient.invalidateQueries({ queryKey: ['products-stock'] })
+  }
+
+  const addBatch = useMutation({
+    mutationFn: () =>
+      catalogApi.addBatch(productId, { quantity: Number(newQuantity), expirationDate: newExpiration || null }),
+    onSuccess: () => {
+      toast.success('Lote agregado')
+      setNewQuantity('')
+      setNewExpiration('')
+      invalidate()
+    },
+    onError: (e) => toast.error('No se pudo agregar el lote', { description: getApiErrorMessage(e) }),
+  })
+
+  const deleteBatch = useMutation({
+    mutationFn: (batchId: number) => catalogApi.deleteBatch(batchId),
+    onSuccess: () => {
+      toast.success('Lote eliminado')
+      invalidate()
+    },
+    onError: (e) => toast.error('No se pudo eliminar el lote', { description: getApiErrorMessage(e) }),
+  })
+
+  const totalRemaining = (batches ?? []).reduce((sum, b) => sum + b.quantityRemaining, 0)
+
+  return (
+    <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3">
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Lotes</label>
+        {!isLoading && <span className="text-xs font-medium text-neutral-500">Quedan {totalRemaining}</span>}
       </div>
-      <div>
-        <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1">
-          Precio unitario (referencia, no el de venta)
-        </label>
-        <Input type="number" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
-        <p className="text-xs text-neutral-400 mt-1">
-          Solo informativo/de inventario — lo que cobras de verdad se define en Precios, por categoría.
-        </p>
+
+      {isLoading ? (
+        <div className="space-y-1.5 mb-2">
+          <Skeleton className="h-11 w-full rounded-lg" />
+          <Skeleton className="h-11 w-full rounded-lg" />
+        </div>
+      ) : (
+        <div className="space-y-1.5 max-h-40 overflow-y-auto mb-2">
+          {batches?.length === 0 && <p className="text-xs text-neutral-400">Aún no hay lotes registrados.</p>}
+          {batches?.map((b) => (
+            <div
+              key={b.id}
+              className="flex items-center justify-between gap-2 rounded-lg border border-neutral-200 dark:border-neutral-700 px-2.5 py-1.5"
+            >
+              <div className="min-w-0">
+                <p className="text-sm text-neutral-900 dark:text-neutral-50">
+                  {b.quantityRemaining} / {b.quantityReceived}
+                  {b.quantityRemaining <= 0 && <span className="text-status-busy ml-1">(agotado)</span>}
+                </p>
+                <p className="text-xs text-neutral-400">
+                  {b.expirationDate ? `Vence ${b.expirationDate.split('-').reverse().join('/')}` : 'Sin vencimiento'}
+                  {' · '}
+                  Recibido {b.receivedAt.split('-').reverse().join('/')}
+                </p>
+              </div>
+              <button
+                onClick={() => deleteBatch.mutate(b.id)}
+                className="text-neutral-400 hover:text-red-500 flex-shrink-0"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Input
+          type="number"
+          min={1}
+          placeholder="Cantidad"
+          value={newQuantity}
+          onChange={(e) => setNewQuantity(e.target.value)}
+          className="flex-1"
+        />
+        <Input
+          type="date"
+          value={newExpiration}
+          onChange={(e) => setNewExpiration(e.target.value)}
+          className="flex-1"
+        />
+        <Button
+          type="button"
+          onClick={() => addBatch.mutate()}
+          disabled={!newQuantity || Number(newQuantity) <= 0}
+          loading={addBatch.isPending}
+        >
+          <Plus size={14} />
+        </Button>
       </div>
-      <Button type="submit" className="w-full" disabled={!name || !categoryId} loading={update.isPending}>
-        Guardar
-      </Button>
-    </form>
+    </div>
   )
 }
 
@@ -352,9 +313,6 @@ export default function CatalogoPage() {
       catalogApi.createProduct({
         name,
         categoryId: Number(categoryId),
-        expirationDate: null,
-        quantity: null,
-        unitPrice: null,
       }),
     onSuccess: () => {
       toast.success('Producto creado')
@@ -551,19 +509,19 @@ export default function CatalogoPage() {
               const cat = categories?.find((c) => c.name === p.category.name)
               const Icon = cat ? ROLE_ICONS[cat.code] : Package
               return (
-                <Card key={p.id} className="relative p-3 flex flex-col items-center text-center gap-2">
-                  <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5">
+                <Card key={p.id} className="relative p-3 flex flex-col items-center text-center gap-2 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors group">
+                  <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => setEditingProductId(p.id)}
                       title="Editar producto"
-                      className="w-6 h-6 flex items-center justify-center rounded text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400"
+                      className="w-6 h-6 flex items-center justify-center rounded text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400 cursor-pointer"
                     >
                       <Pencil size={13} />
                     </button>
                     <button
                       onClick={() => setDeletingProduct(p)}
                       title="Eliminar producto"
-                      className="w-6 h-6 flex items-center justify-center rounded text-neutral-400 hover:text-red-500"
+                      className="w-6 h-6 flex items-center justify-center rounded text-neutral-400 hover:text-red-500 cursor-pointer"
                     >
                       <Trash2 size={13} />
                     </button>

@@ -2,6 +2,8 @@ import { apiClient } from './client'
 import type {
   CategoryRequest,
   CategoryResponse,
+  ProductBatchRequest,
+  ProductBatchResponse,
   ProductDetailResponse,
   ProductInfo,
   ProductRequest,
@@ -34,4 +36,16 @@ export const catalogApi = {
     apiClient.put<ProductDetailResponse>(`/api/v1/products/${id}`, data).then((r) => r.data),
 
   deleteProduct: (id: number) => apiClient.delete(`/api/v1/products/${id}`).then((r) => r.data),
+
+  // Lotes — cantidad y vencimiento por lote recibido, con historial (a diferencia
+  // del viejo campo único que se sobreescribía en cada edición).
+  getStock: () => apiClient.get<Record<number, number>>('/api/v1/products/stock').then((r) => r.data),
+
+  getBatches: (productId: number) =>
+    apiClient.get<ProductBatchResponse[]>(`/api/v1/products/${productId}/batches`).then((r) => r.data),
+
+  addBatch: (productId: number, data: ProductBatchRequest) =>
+    apiClient.post<ProductBatchResponse>(`/api/v1/products/${productId}/batches`, data).then((r) => r.data),
+
+  deleteBatch: (batchId: number) => apiClient.delete(`/api/v1/products/batches/${batchId}`).then((r) => r.data),
 }

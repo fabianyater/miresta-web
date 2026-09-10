@@ -13,7 +13,7 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { toast } from '@/store/toast'
 import { getApiErrorMessage } from '@/lib/apiErrors'
-import { formatDateTime, formatMoney } from '@/lib/utils'
+import { formatDateTime, formatMoney, paymentSummary } from '@/lib/utils'
 import { isAdminRole } from '@/lib/roles'
 import { useAuthStore } from '@/store/auth'
 
@@ -211,7 +211,7 @@ export default function ClienteDetallePage() {
                 {order.orderStatus.name !== 'COMPLETED' ? (
                   <Badge variant="pending">{order.orderStatus.name}</Badge>
                 ) : order.paid ? (
-                  <Badge variant="free">Pagado{order.paymentType ? ` · ${order.paymentType.name}` : ''}</Badge>
+                  <Badge variant="free">Pagado{paymentSummary(order) ? ` · ${paymentSummary(order)}` : ''}</Badge>
                 ) : (
                   <Badge variant="busy">Debe</Badge>
                 )}

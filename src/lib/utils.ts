@@ -1,8 +1,18 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import type { OrdersResponse } from '@/types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+// "Efectivo", o "Efectivo + Transferencia" si se pagó dividido entre métodos (en ese
+// caso paymentType queda null en el backend — el desglose real vive en `payments`).
+export function paymentSummary(order: OrdersResponse): string | null {
+  if (!order.paid) return null
+  if (order.paymentType) return order.paymentType.name
+  if (order.payments.length > 0) return order.payments.map((p) => p.paymentTypeName).join(' + ')
+  return null
 }
 
 export function formatMoney(amount: number): string {

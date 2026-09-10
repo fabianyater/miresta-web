@@ -41,9 +41,10 @@ export default function ImpresoraPage() {
 
 function ImpresoraForm({ initial }: { initial: PrinterSettingResponse }) {
   const [printerName, setPrinterName] = useState(initial.printerName)
+  const [printingEnabled, setPrintingEnabled] = useState(initial.printingEnabled)
 
   const update = useMutation({
-    mutationFn: () => printingApi.updatePrinterSetting({ printerName }),
+    mutationFn: () => printingApi.updatePrinterSetting({ printerName, printingEnabled }),
     onSuccess: () => toast.success('Impresora actualizada'),
   })
 
@@ -55,6 +56,23 @@ function ImpresoraForm({ initial }: { initial: PrinterSettingResponse }) {
         </label>
         <Input value={printerName} onChange={(e) => setPrinterName(e.target.value)} placeholder="JALTECH-POS-80" />
       </div>
+      <label className="flex items-start gap-2.5 rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
+        <input
+          type="checkbox"
+          checked={printingEnabled}
+          onChange={(e) => setPrintingEnabled(e.target.checked)}
+          className="w-4 h-4 mt-0.5 accent-brand-500"
+        />
+        <span>
+          <span className="block text-sm font-medium text-neutral-900 dark:text-neutral-50">
+            Impresión activada
+          </span>
+          <span className="block text-xs text-neutral-500">
+            Si la desactivas, comanda/cuenta/resumen no se envían a la impresora — en su lugar se muestra una
+            vista previa de cómo se vería. Útil si la impresora no está conectada.
+          </span>
+        </span>
+      </label>
       <Button className="w-full" onClick={() => update.mutate()} loading={update.isPending}>
         <Save size={16} />
         Guardar

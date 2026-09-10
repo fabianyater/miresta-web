@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarPlus, Minus, Plus, Trash2 } from 'lucide-react'
+import { CalendarPlus, Check, LayoutGrid, Minus, Package, Plus, Search, Trash2 } from 'lucide-react'
 import { menusApi } from '@/api/menus'
 import { catalogApi } from '@/api/catalog'
 import { Card } from '@/components/ui/Card'
@@ -10,10 +10,12 @@ import { Select } from '@/components/ui/Select'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { BackLink } from '@/components/ui/BackLink'
 import { Dialog } from '@/components/ui/Dialog'
+import { CategoryChip, CategoryRow } from '@/components/ui/CategoryNav'
+import { ROLE_ICONS } from '@/lib/comboCategoryUi'
 import { toast } from '@/store/toast'
 import { getApiErrorMessage } from '@/lib/apiErrors'
-import { todayIso } from '@/lib/utils'
-import type { MenuResponse, ProductDto, ProductInfo } from '@/types'
+import { cn, todayIso } from '@/lib/utils'
+import type { CategoryResponse, MenuResponse, ProductDto, ProductInfo } from '@/types'
 
 function toDdMmYyyy(iso: string) {
   const [y, m, d] = iso.split('-')
@@ -45,11 +47,24 @@ export default function MenuPage() {
     queryFn: catalogApi.getProducts,
   })
 
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: catalogApi.getCategories,
+  })
+
   const existingMenu = menus?.find((m) => m.type === foodType)
   const formReady = !loadingProducts && !loadingMenus
 
+  // Las bebidas nunca dependen del menú del día — están siempre disponibles y se
+  // piden sueltas, así que no tiene sentido incluirlas al armar el menú.
+  const menuCategories = useMemo(() => (categories ?? []).filter((c) => c.code !== 'BEBIDA'), [categories])
+  const menuProducts = useMemo(() => {
+    const drinkCategoryNames = new Set((categories ?? []).filter((c) => c.code === 'BEBIDA').map((c) => c.name))
+    return (products ?? []).filter((p) => !drinkCategoryNames.has(p.category.name))
+  }, [products, categories])
+
   return (
-    <div className="max-w-2xl mx-auto p-4 md:p-8">
+    <div className="max-w-4xl mx-auto p-4 md:p-8">
       <BackLink to="/admin" label="Volver a Admin" />
       <h1 className="text-xl md:text-2xl font-bold text-neutral-900 dark:text-neutral-50 tracking-tight mb-5">Menú del día</h1>
 
@@ -71,18 +86,25 @@ export default function MenuPage() {
             key={`${date}-${foodType}`}
             date={date}
             foodType={foodType}
-            products={products ?? []}
+            products={menuProducts}
+            categories={menuCategories}
             existingMenu={existingMenu}
           />
         ) : (
-          <div className="space-y-3">
-            <Skeleton className="h-3 w-20" />
-            <div className="flex flex-wrap gap-1.5">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-6 w-16 rounded-full" />
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex md:flex-col gap-1.5 md:w-48 flex-shrink-0">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-9 w-20 md:w-full rounded-full md:rounded-xl flex-shrink-0" />
               ))}
             </div>
-            <Skeleton className="h-10 w-full rounded-lg mt-4" />
+            <div className="flex-1 space-y-3">
+              <Skeleton className="h-9 w-full rounded-lg" />
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </Card>
@@ -120,24 +142,36 @@ interface MenuFormProps {
   date: string
   foodType: string
   products: ProductInfo[]
+  categories: CategoryResponse[]
   existingMenu: MenuResponse | undefined
 }
 
-function MenuForm({ date, foodType, products, existingMenu }: MenuFormProps) {
+function MenuForm({ date, foodType, products, categories, existingMenu }: MenuFormProps) {
   const queryClient = useQueryClient()
   const isEditing = !!existingMenu
   const [selected, setSelected] = useState<Record<number, number | null>>(() => buildInitialSelection(existingMenu))
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | 'all'>('all')
+  const [search, setSearch] = useState('')
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, ProductInfo[]>()
+  const countByCategoryName = useMemo(() => {
+    const map = new Map<string, number>()
     for (const p of products) {
-      const key = p.category?.name ?? 'Otros'
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(p)
+      map.set(p.category.name, (map.get(p.category.name) ?? 0) + 1)
     }
     return map
   }, [products])
+
+  const selectedCategory = categories.find((c) => c.id === selectedCategoryId) ?? null
+
+  const visibleProducts = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return products.filter((p) => {
+      const matchesCategory = !selectedCategory || p.category.name === selectedCategory.name
+      const matchesSearch = !q || p.name.toLowerCase().includes(q)
+      return matchesCategory && matchesSearch
+    })
+  }, [products, selectedCategory, search])
 
   const selectedIds = Object.keys(selected).map(Number)
   // Solo las proteínas necesitan límite de cantidad — lo demás (sopas, principios,
@@ -201,27 +235,103 @@ function MenuForm({ date, foodType, products, existingMenu }: MenuFormProps) {
         </p>
       )}
 
-      <div className="space-y-3 max-h-72 overflow-y-auto">
-        {[...grouped.entries()].map(([category, items]) => (
-          <div key={category}>
-            <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1">{category}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {items.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => toggle(p.id)}
-                  className={
-                    p.id in selected
-                      ? 'px-2.5 py-1 rounded-full text-xs font-medium bg-brand-500 text-white'
-                      : 'px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300'
-                  }
-                >
-                  {p.name}
-                </button>
-              ))}
-            </div>
+      <div className="flex flex-col md:flex-row gap-4">
+        {/* Categories: horizontal chips on mobile, a sidebar list on desktop — igual que Catálogo */}
+        <aside className="md:w-48 flex-shrink-0">
+          <div className="flex md:hidden gap-2 overflow-x-auto pb-1">
+            <CategoryChip
+              icon={LayoutGrid}
+              label="Todos"
+              count={products.length}
+              active={selectedCategoryId === 'all'}
+              onClick={() => setSelectedCategoryId('all')}
+            />
+            {categories.map((c) => (
+              <CategoryChip
+                key={c.id}
+                icon={ROLE_ICONS[c.code]}
+                label={c.name}
+                count={countByCategoryName.get(c.name) ?? 0}
+                active={selectedCategoryId === c.id}
+                onClick={() => setSelectedCategoryId(c.id)}
+              />
+            ))}
           </div>
-        ))}
+          <div className="hidden md:block space-y-1 max-h-[27rem] overflow-y-auto pr-1">
+            <CategoryRow
+              icon={LayoutGrid}
+              label="Todos"
+              count={products.length}
+              active={selectedCategoryId === 'all'}
+              onClick={() => setSelectedCategoryId('all')}
+            />
+            {categories.map((c) => (
+              <CategoryRow
+                key={c.id}
+                icon={ROLE_ICONS[c.code]}
+                label={c.name}
+                count={countByCategoryName.get(c.name) ?? 0}
+                active={selectedCategoryId === c.id}
+                onClick={() => setSelectedCategoryId(c.id)}
+              />
+            ))}
+          </div>
+        </aside>
+
+        {/* Products */}
+        <div className="flex-1 min-w-0">
+          <div className="relative mb-3">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+            <Input
+              placeholder="Buscar productos..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-[26rem] overflow-y-auto pr-1">
+            {visibleProducts.map((p) => {
+              const isSelected = p.id in selected
+              const cat = categories.find((c) => c.name === p.category.name)
+              const Icon = cat ? ROLE_ICONS[cat.code] : Package
+              return (
+                <button key={p.id} onClick={() => toggle(p.id)} className="relative text-left">
+                  <Card
+                    className={cn(
+                      'p-2.5 flex flex-col items-center text-center gap-1.5',
+                      isSelected && 'border-brand-500 dark:border-brand-500',
+                    )}
+                  >
+                    {isSelected && (
+                      <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-brand-500 flex items-center justify-center">
+                        <Check size={10} className="text-white" strokeWidth={3} />
+                      </div>
+                    )}
+                    <div
+                      className={cn(
+                        'w-9 h-9 rounded-full flex items-center justify-center mt-1',
+                        isSelected
+                          ? 'bg-brand-500 text-white'
+                          : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400',
+                      )}
+                    >
+                      <Icon size={16} />
+                    </div>
+                    <span className="text-xs font-medium text-neutral-900 dark:text-neutral-50 truncate w-full">
+                      {p.name}
+                    </span>
+                  </Card>
+                </button>
+              )
+            })}
+          </div>
+          {visibleProducts.length === 0 && (
+            <p className="text-sm text-neutral-400 text-center py-6">
+              {search ? 'Ningún producto coincide con la búsqueda.' : 'No hay productos en esta categoría.'}
+            </p>
+          )}
+        </div>
       </div>
 
       {proteinSelectedIds.length > 0 && (

@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { cn, formatDateTime, formatMoney, todayIso } from '@/lib/utils'
+import { cn, formatDateTime, formatMoney, paymentSummary, todayIso } from '@/lib/utils'
 import type { OrdersResponse } from '@/types'
 
 function timeAgo(iso: string) {
@@ -26,7 +26,8 @@ function OrderStatusBadge({ order }: { order: OrdersResponse }) {
     return <Badge variant="pending">Pendiente</Badge>
   }
   if (order.paid) {
-    return <Badge variant="free">Pagado{order.paymentType ? ` · ${order.paymentType.name}` : ''}</Badge>
+    const summary = paymentSummary(order)
+    return <Badge variant="free">Pagado{summary ? ` · ${summary}` : ''}</Badge>
   }
   return <Badge variant="busy">Debe</Badge>
 }
