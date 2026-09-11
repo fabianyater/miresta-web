@@ -316,6 +316,50 @@ export interface PaymentTotalResponse {
   total: number
 }
 
+export interface CashMovementResponse {
+  id: number
+  type: 'ENTRADA' | 'SALIDA'
+  amount: number
+  reason: string
+  createdAt: string
+  createdBy: string
+}
+
+// Mientras el turno sigue abierto, `expectedCash` viene calculado en vivo y
+// `countedCash`/`difference` son null — solo se llenan al cerrar.
+export interface CashShiftResponse {
+  id: number
+  openedAt: string
+  openedBy: string
+  openingCash: number
+  closedAt: string | null
+  closedBy: string | null
+  countedCash: number | null
+  expectedCash: number
+  difference: number | null
+  notes: string | null
+  cashSales: number
+  salesByMethod: PaymentTotalResponse[]
+  totalEntradas: number
+  totalSalidas: number
+  movements: CashMovementResponse[]
+}
+
+export interface OpenShiftRequest {
+  openingCash: number
+}
+
+export interface CloseShiftRequest {
+  countedCash: number
+  notes: string
+}
+
+export interface CashMovementRequest {
+  type: 'ENTRADA' | 'SALIDA'
+  amount: number
+  reason: string
+}
+
 export interface MealTypeSummary {
   mealType: string
   orderItemCount: number

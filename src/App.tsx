@@ -24,6 +24,7 @@ import MenuPage from '@/pages/admin/MenuPage'
 import ReportesPage from '@/pages/admin/ReportesPage'
 import ImpresoraPage from '@/pages/admin/ImpresoraPage'
 import FrasesCocinaPage from '@/pages/admin/FrasesCocinaPage'
+import CajaPage from '@/pages/admin/CajaPage'
 
 // Registers react-router's navigate() so code outside the tree (the axios
 // interceptor, on a 401) can redirect without a hard page reload.
@@ -68,6 +69,7 @@ export default function App() {
                 <Route path="/admin/reportes" element={<ReportesPage />} />
                 <Route path="/admin/impresora" element={<ImpresoraPage />} />
                 <Route path="/admin/frases-cocina" element={<FrasesCocinaPage />} />
+                <Route path="/admin/caja" element={<CajaPage />} />
               </Route>
             </Route>
           </Route>
