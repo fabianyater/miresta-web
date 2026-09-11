@@ -62,7 +62,7 @@ export default function CajaPage() {
   const [movementAmount, setMovementAmount] = useState('')
   const [movementReason, setMovementReason] = useState('')
   const [showClose, setShowClose] = useState(false)
-  const [countedCash, setCountedCash] = useState('')
+  const [countedInputs, setCountedInputs] = useState<Record<string, string>>({})
   const [closeNotes, setCloseNotes] = useState('')
   const [showHistory, setShowHistory] = useState(false)
 
@@ -108,14 +108,19 @@ export default function CajaPage() {
   })
 
   const closeShift = useMutation({
-    mutationFn: () =>
-      cashShiftsApi.close(shift!.id, { countedCash: Number(countedCash) || 0, notes: closeNotes.trim() }),
+    mutationFn: () => {
+      const countedByMethod: Record<string, number> = {}
+      for (const [method, value] of Object.entries(countedInputs)) {
+        countedByMethod[method] = Number(value) || 0
+      }
+      return cashShiftsApi.close(shift!.id, { countedByMethod, notes: closeNotes.trim() })
+    },
     onSuccess: (closed) => {
-      const diff = closed.difference ?? 0
-      if (diff === 0) toast.success('Turno cerrado — cuadró exacto')
-      else toast.error(`Turno cerrado — ${diff > 0 ? 'sobran' : 'faltan'} ${formatMoney(Math.abs(diff))}`)
+      const diff = closed.totalDifferenceAllMethods ?? 0
+      if (diff === 0) toast.success('Turno cerrado — todo cuadró')
+      else toast.error(`Turno cerrado — ${diff > 0 ? 'sobran' : 'faltan'} ${formatMoney(Math.abs(diff))} en total`)
       setShowClose(false)
-      setCountedCash('')
+      setCountedInputs({})
       setCloseNotes('')
       invalidateCurrent()
       queryClient.invalidateQueries({ queryKey: ['cash-shift-history'] })
@@ -123,7 +128,21 @@ export default function CajaPage() {
     onError: (e) => toast.error('No se pudo cerrar el turno', { description: getApiErrorMessage(e) }),
   })
 
-  const previewDifference = shift ? (Number(countedCash) || 0) - shift.expectedCash : 0
+  const openCloseDialog = () => {
+    if (!shift) return
+    const seeded: Record<string, string> = {}
+    for (const m of shift.methodReconciliations) seeded[m.paymentTypeName] = String(m.expected)
+    setCountedInputs(seeded)
+    setShowClose(true)
+  }
+
+  const closePreview = shift
+    ? shift.methodReconciliations.map((m) => {
+        const counted = Number(countedInputs[m.paymentTypeName] ?? m.expected) || 0
+        return { ...m, previewCounted: counted, previewDifference: counted - m.expected }
+      })
+    : []
+  const totalPreviewDifference = closePreview.reduce((sum, m) => sum + m.previewDifference, 0)
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-8 pb-10">
@@ -163,7 +182,7 @@ export default function CajaPage() {
                 Abrió {shift.openedBy} · {formatDateTime(shift.openedAt)}
               </p>
             </div>
-            <Button variant="danger" onClick={() => setShowClose(true)}>
+            <Button variant="danger" onClick={openCloseDialog}>
               <Lock size={16} />
               Cerrar turno
             </Button>
@@ -267,7 +286,7 @@ export default function CajaPage() {
                   {h.closedAt ? ` – ${formatDateTime(h.closedAt)}` : ''}
                 </p>
                 {h.closedAt ? (
-                  <DifferenceBadge difference={h.difference} />
+                  <DifferenceBadge difference={h.totalDifferenceAllMethods} />
                 ) : (
                   <Badge variant="pending">Abierto</Badge>
                 )}
@@ -278,9 +297,17 @@ export default function CajaPage() {
               </p>
               <div className="flex items-center gap-4 mt-2 text-xs text-neutral-500">
                 <span>Base {formatMoney(h.openingCash)}</span>
-                <span>Esperado {formatMoney(h.expectedCash)}</span>
-                {h.countedCash != null && <span>Contado {formatMoney(h.countedCash)}</span>}
+                <span>Efectivo esperado {formatMoney(h.expectedCash)}</span>
+                {h.countedCash != null && <span>Efectivo contado {formatMoney(h.countedCash)}</span>}
               </div>
+              {h.methodReconciliations.length > 1 && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-neutral-500">
+                  <span>Total esperado {formatMoney(h.totalExpectedAllMethods)}</span>
+                  {h.totalCountedAllMethods != null && (
+                    <span>Total contado {formatMoney(h.totalCountedAllMethods)}</span>
+                  )}
+                </div>
+              )}
             </Card>
           ))}
         </div>
@@ -336,41 +363,67 @@ export default function CajaPage() {
 
       <Dialog open={showClose} onClose={() => setShowClose(false)} title="Cerrar turno">
         {shift && (
-          <div className="space-y-3">
-            <Row label="Efectivo esperado" amount={shift.expectedCash} bold />
-            <Input
-              type="number"
-              placeholder="Efectivo contado"
-              value={countedCash}
-              onChange={(e) => setCountedCash(e.target.value)}
-              autoFocus
-            />
-            {countedCash && (
+          <div className="space-y-4">
+            <p className="text-xs text-neutral-500">
+              Efectivo se cuenta a mano; tarjeta/transferencia se verifican contra el datáfono o el banco. Un
+              método que dejes igual se asume cuadrado.
+            </p>
+
+            <div className="space-y-3">
+              {closePreview.map((m, i) => (
+                <div key={m.paymentTypeName}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                      {m.paymentTypeName}
+                    </span>
+                    <span className="text-xs text-neutral-500">Esperado {formatMoney(m.expected)}</span>
+                  </div>
+                  <Input
+                    type="number"
+                    value={countedInputs[m.paymentTypeName] ?? ''}
+                    onChange={(e) =>
+                      setCountedInputs((prev) => ({ ...prev, [m.paymentTypeName]: e.target.value }))
+                    }
+                    autoFocus={i === 0}
+                  />
+                  <p
+                    className={cn(
+                      'text-xs font-semibold mt-1',
+                      m.previewDifference === 0 ? 'text-status-free' : 'text-status-busy',
+                    )}
+                  >
+                    {m.previewDifference === 0
+                      ? 'Cuadra exacto'
+                      : m.previewDifference > 0
+                        ? `Sobran ${formatMoney(m.previewDifference)}`
+                        : `Faltan ${formatMoney(-m.previewDifference)}`}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-neutral-100 dark:border-neutral-700 pt-3">
               <p
                 className={cn(
-                  'text-sm font-semibold',
-                  previewDifference === 0 ? 'text-status-free' : 'text-status-busy',
+                  'text-sm font-bold',
+                  totalPreviewDifference === 0 ? 'text-status-free' : 'text-status-busy',
                 )}
               >
-                {previewDifference === 0
-                  ? 'Cuadra exacto'
-                  : previewDifference > 0
-                    ? `Sobran ${formatMoney(previewDifference)}`
-                    : `Faltan ${formatMoney(-previewDifference)}`}
+                Total:{' '}
+                {totalPreviewDifference === 0
+                  ? 'cuadra exacto'
+                  : totalPreviewDifference > 0
+                    ? `sobran ${formatMoney(totalPreviewDifference)}`
+                    : `faltan ${formatMoney(-totalPreviewDifference)}`}
               </p>
-            )}
+            </div>
+
             <Input
               placeholder="Notas (opcional)"
               value={closeNotes}
               onChange={(e) => setCloseNotes(e.target.value)}
             />
-            <Button
-              className="w-full"
-              variant="danger"
-              disabled={!countedCash}
-              loading={closeShift.isPending}
-              onClick={() => closeShift.mutate()}
-            >
+            <Button className="w-full" variant="danger" loading={closeShift.isPending} onClick={() => closeShift.mutate()}>
               Confirmar cierre
             </Button>
           </div>

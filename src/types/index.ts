@@ -325,8 +325,18 @@ export interface CashMovementResponse {
   createdBy: string
 }
 
+// Mientras el turno sigue abierto, `counted`/`difference` vienen null — solo se
+// llenan al cerrar (`expected` sí se calcula en vivo).
+export interface MethodReconciliationResponse {
+  paymentTypeName: string
+  expected: number
+  counted: number | null
+  difference: number | null
+}
+
 // Mientras el turno sigue abierto, `expectedCash` viene calculado en vivo y
-// `countedCash`/`difference` son null — solo se llenan al cerrar.
+// `countedCash`/`difference` son null — solo se llenan al cerrar. Lo mismo aplica a
+// `totalCountedAllMethods`/`totalDifferenceAllMethods`.
 export interface CashShiftResponse {
   id: number
   openedAt: string
@@ -343,6 +353,10 @@ export interface CashShiftResponse {
   totalEntradas: number
   totalSalidas: number
   movements: CashMovementResponse[]
+  methodReconciliations: MethodReconciliationResponse[]
+  totalExpectedAllMethods: number
+  totalCountedAllMethods: number | null
+  totalDifferenceAllMethods: number | null
 }
 
 export interface OpenShiftRequest {
@@ -350,7 +364,9 @@ export interface OpenShiftRequest {
 }
 
 export interface CloseShiftRequest {
-  countedCash: number
+  // Contado/verificado por método de pago (ej. { Efectivo: 120000, Tarjeta: 85000 }).
+  // Un método que no venga se asume cuadrado (contado = esperado).
+  countedByMethod: Record<string, number>
   notes: string
 }
 
