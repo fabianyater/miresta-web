@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/auth'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
 import { Dialog } from '@/components/ui/Dialog'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { SalonCanvas } from '@/components/SalonCanvas'
@@ -25,6 +26,7 @@ export default function MesasPage() {
   const [newNumber, setNewNumber] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [editSalonId, setEditSalonId] = useState<number | null>(null)
   const [activeSalonId, setActiveSalonId] = useState<number | null>(null)
 
   const { data, isLoading } = useQuery({
@@ -56,10 +58,12 @@ export default function MesasPage() {
   })
 
   const renameTable = useMutation({
-    mutationFn: ({ id, number }: { id: number; number: number }) => tablesApi.renameTable(id, number),
+    mutationFn: ({ id, number, salonId }: { id: number; number: number; salonId?: number }) =>
+      tablesApi.renameTable(id, number, salonId),
     onSuccess: () => {
       toast.success('Mesa actualizada')
       queryClient.invalidateQueries({ queryKey: ['tables'] })
+      queryClient.invalidateQueries({ queryKey: ['salons'] })
       setEditingId(null)
     },
     onError: (e) => toast.error('No se pudo actualizar la mesa', { description: getApiErrorMessage(e) }),
@@ -138,8 +142,8 @@ export default function MesasPage() {
 
       <Dialog open={manageOpen} onClose={() => setManageOpen(false)} title="Administrar mesas">
         <p className="text-xs text-neutral-400 mb-3">
-          Mesas de «{salones?.find((s) => s.id === activeSalonId)?.name ?? '…'}» — cambia de salón en las pestañas
-          antes de abrir esto para administrar otro.
+          Mesas de «{salones?.find((s) => s.id === activeSalonId)?.name ?? '…'}» — para ver las de otro salón, cambia
+          de pestaña antes de abrir esto. Con el lápiz también puedes mandar una mesa a otro salón.
         </p>
         <div className="flex gap-2 mb-4">
           <Input
@@ -175,21 +179,39 @@ export default function MesasPage() {
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && editValue) {
-                        renameTable.mutate({ id: table.id, number: Number(editValue) })
+                      if (e.key === 'Enter' && editValue && editSalonId != null) {
+                        renameTable.mutate({ id: table.id, number: Number(editValue), salonId: editSalonId })
                       }
                       if (e.key === 'Escape') setEditingId(null)
                     }}
-                    className="flex-1"
+                    className="w-20 flex-shrink-0"
                   />
+                  <Select
+                    value={editSalonId ?? ''}
+                    onChange={(e) => setEditSalonId(Number(e.target.value))}
+                    className="flex-1"
+                  >
+                    {salones?.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </Select>
                   <button
-                    onClick={() => editValue && renameTable.mutate({ id: table.id, number: Number(editValue) })}
-                    disabled={!editValue || renameTable.isPending}
-                    className="text-status-free disabled:opacity-30"
+                    onClick={() =>
+                      editValue &&
+                      editSalonId != null &&
+                      renameTable.mutate({ id: table.id, number: Number(editValue), salonId: editSalonId })
+                    }
+                    disabled={!editValue || editSalonId == null || renameTable.isPending}
+                    className="text-status-free disabled:opacity-30 flex-shrink-0"
                   >
                     <Check size={18} />
                   </button>
-                  <button onClick={() => setEditingId(null)} className="text-neutral-400 hover:text-neutral-600">
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="text-neutral-400 hover:text-neutral-600 flex-shrink-0"
+                  >
                     <X size={18} />
                   </button>
                 </div>
@@ -212,8 +234,9 @@ export default function MesasPage() {
                     onClick={() => {
                       setEditingId(table.id)
                       setEditValue(String(table.number))
+                      setEditSalonId(table.salonId)
                     }}
-                    title="Editar número"
+                    title="Editar mesa"
                     className="text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
                   >
                     <Pencil size={16} />
