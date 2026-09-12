@@ -188,12 +188,24 @@ export interface TableEntityDto {
   id: number
   number: number
   status: string
+  salonId: number
+  salonName: string
+  // Posición en el plano del salón, 0-100 (porcentaje del lienzo).
+  positionX: number
+  positionY: number
 }
 
 export interface TableSummaryResponse {
   tables: TableEntityDto[]
   freeTables: number
   inUseTables: number
+}
+
+export interface SalonResponse {
+  id: number
+  name: string
+  sortOrder: number
+  tableCount: number
 }
 
 export interface DiningTableResponse {

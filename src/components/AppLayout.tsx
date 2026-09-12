@@ -13,6 +13,7 @@ import {
   Printer,
   MessageSquare,
   Wallet,
+  LayoutGrid,
 } from 'lucide-react'
 import { SlidersHorizontal } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
@@ -35,6 +36,7 @@ const desktopAdminNav = [
   { to: '/admin/precios', label: 'Precios', icon: Tag },
   { to: '/admin/catalogo', label: 'Catálogo', icon: Package },
   { to: '/admin/menu', label: 'Menú del día', icon: CalendarDays },
+  { to: '/admin/salones', label: 'Salones', icon: LayoutGrid },
   { to: '/admin/caja', label: 'Caja', icon: Wallet },
   { to: '/admin/reportes', label: 'Reportes', icon: BarChart3 },
   { to: '/admin/impresora', label: 'Impresora', icon: Printer },

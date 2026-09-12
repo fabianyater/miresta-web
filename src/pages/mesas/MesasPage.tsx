@@ -1,15 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ShoppingBag, Users2, Settings, Plus, Trash2, Pencil, Check, X } from 'lucide-react'
+import { ShoppingBag, Settings, Plus, Trash2, Pencil, Check, X } from 'lucide-react'
 import { tablesApi } from '@/api/tables'
+import { salonsApi } from '@/api/salons'
 import { useAuthStore } from '@/store/auth'
-import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Dialog } from '@/components/ui/Dialog'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { SalonCanvas } from '@/components/SalonCanvas'
 import { toast } from '@/store/toast'
 import { cn } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/apiErrors'
@@ -24,6 +25,7 @@ export default function MesasPage() {
   const [newNumber, setNewNumber] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [activeSalonId, setActiveSalonId] = useState<number | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['tables'],
@@ -31,11 +33,23 @@ export default function MesasPage() {
     refetchInterval: 15000,
   })
 
+  const { data: salones, isLoading: loadingSalones } = useQuery({
+    queryKey: ['salons'],
+    queryFn: salonsApi.getSalons,
+  })
+
+  useEffect(() => {
+    if (salones && salones.length > 0 && activeSalonId == null) {
+      setActiveSalonId(salones[0].id)
+    }
+  }, [salones, activeSalonId])
+
   const createTable = useMutation({
-    mutationFn: () => tablesApi.createTable(Number(newNumber)),
+    mutationFn: () => tablesApi.createTable(Number(newNumber), activeSalonId!),
     onSuccess: () => {
       toast.success('Mesa creada')
       queryClient.invalidateQueries({ queryKey: ['tables'] })
+      queryClient.invalidateQueries({ queryKey: ['salons'] })
       setNewNumber('')
     },
     onError: (e) => toast.error('No se pudo crear la mesa', { description: getApiErrorMessage(e) }),
@@ -56,11 +70,14 @@ export default function MesasPage() {
     onSuccess: () => {
       toast.success('Mesa eliminada')
       queryClient.invalidateQueries({ queryKey: ['tables'] })
+      queryClient.invalidateQueries({ queryKey: ['salons'] })
     },
     onError: (e) => toast.error('No se pudo eliminar la mesa', { description: getApiErrorMessage(e) }),
   })
 
-  const tables = data?.tables ?? []
+  const allTables = data?.tables ?? []
+  const tables = activeSalonId != null ? allTables.filter((t) => t.salonId === activeSalonId) : allTables
+  const loading = isLoading || loadingSalones
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
@@ -90,48 +107,40 @@ export default function MesasPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-        {isLoading &&
-          Array.from({ length: 10 }).map((_, i) => (
-            <Card key={i} className="aspect-square flex flex-col items-center justify-center gap-1.5 p-3">
-              <Skeleton className="h-[22px] w-[22px] rounded-full" />
-              <Skeleton className="h-5 w-6" />
-              <Skeleton className="h-3.5 w-10 rounded-full" />
-            </Card>
-          ))}
-        {!isLoading && tables.map((table) => {
-          const isFree = table.status === 'OPEN'
-          return (
+      {!loadingSalones && salones && salones.length > 1 && (
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+          {salones.map((salon) => (
             <button
-              key={table.id}
-              onClick={() => navigate(`/pedido/mesa/${table.id}`)}
-              className="text-left"
+              key={salon.id}
+              onClick={() => setActiveSalonId(salon.id)}
+              className={cn(
+                'flex-shrink-0 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors',
+                activeSalonId === salon.id
+                  ? 'bg-brand-500 text-white'
+                  : 'bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300',
+              )}
             >
-              <Card
-                className={cn(
-                  'aspect-square flex flex-col items-center justify-center gap-1.5 p-3 transition-transform active:scale-95',
-                  isFree ? 'hover:border-status-free/40' : 'hover:border-status-busy/40',
-                )}
-              >
-                <Users2
-                  size={22}
-                  className={isFree ? 'text-status-free' : 'text-status-busy'}
-                />
-                <span className="text-lg font-bold text-neutral-900 dark:text-neutral-50">{table.number}</span>
-                <Badge variant={isFree ? 'free' : 'busy'} className="text-[10px] px-1.5 py-0.5">
-                  {isFree ? 'Libre' : 'En uso'}
-                </Badge>
-              </Card>
+              {salon.name}
             </button>
-          )
-        })}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {!isLoading && tables.length === 0 && (
+      {loading && <Skeleton className="h-[260px] w-full rounded-2xl" />}
+
+      {!loading && (
+        <SalonCanvas tables={tables} onTableClick={(table) => navigate(`/pedido/mesa/${table.id}`)} />
+      )}
+
+      {!loading && allTables.length === 0 && (
         <p className="text-center text-neutral-400 text-sm py-16">No hay mesas configuradas.</p>
       )}
 
       <Dialog open={manageOpen} onClose={() => setManageOpen(false)} title="Administrar mesas">
+        <p className="text-xs text-neutral-400 mb-3">
+          Mesas de «{salones?.find((s) => s.id === activeSalonId)?.name ?? '…'}» — cambia de salón en las pestañas
+          antes de abrir esto para administrar otro.
+        </p>
         <div className="flex gap-2 mb-4">
           <Input
             type="number"
@@ -221,6 +230,9 @@ export default function MesasPage() {
               </div>
             )
           })}
+          {tables.length === 0 && (
+            <p className="text-center text-neutral-400 text-sm py-6">Este salón no tiene mesas todavía.</p>
+          )}
         </div>
       </Dialog>
     </div>
