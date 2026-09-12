@@ -36,11 +36,18 @@ export function SalonCanvas({
   editable = false,
   onTableClick,
   onPositionChange,
+  onDragPoint,
+  onDropOutside,
 }: {
   tables: TableEntityDto[]
   editable?: boolean
   onTableClick?: (table: TableEntityDto) => void
   onPositionChange?: (id: number, positionX: number, positionY: number) => void
+  // Para soltar una mesa fuera del lienzo (ej. sobre otro salón): se avisa en cada
+  // movimiento (para resaltar el destino) y al soltar, con la posición real del
+  // puntero — el lienzo no decide qué hacer con eso, solo lo reporta.
+  onDragPoint?: (clientX: number, clientY: number) => void
+  onDropOutside?: (tableId: number, clientX: number, clientY: number) => void
 }) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [dragId, setDragId] = useState<number | null>(null)
@@ -80,6 +87,11 @@ export function SalonCanvas({
     }
   }
 
+  const isInsideCanvas = (clientX: number, clientY: number) => {
+    const rect = canvasRef.current?.getBoundingClientRect()
+    return !!rect && clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
+  }
+
   return (
     <div
       ref={canvasRef}
@@ -108,6 +120,11 @@ export function SalonCanvas({
             }}
             onPointerMove={(e) => {
               if (dragId !== table.id) return
+              onDragPoint?.(e.clientX, e.clientY)
+              // Fuera del lienzo no se reacomoda dentro de la cuadrícula — se deja
+              // pegada al borde mientras tanto; quien decide qué pasa es quien escucha
+              // onDropOutside (ej. moverla a otro salón).
+              if (!isInsideCanvas(e.clientX, e.clientY)) return
               const point = pointFromEvent(e)
               if (!point) return
               const { col, row } = cellOf(point.x, point.y)
@@ -115,8 +132,13 @@ export function SalonCanvas({
             }}
             onPointerUp={(e) => {
               if (dragId !== table.id) return
-              const point = pointFromEvent(e) ?? dragPos
               setDragId(null)
+              if (!isInsideCanvas(e.clientX, e.clientY)) {
+                setDragPos(null)
+                onDropOutside?.(table.id, e.clientX, e.clientY)
+                return
+              }
+              const point = pointFromEvent(e) ?? dragPos
               if (!point) {
                 setDragPos(null)
                 return

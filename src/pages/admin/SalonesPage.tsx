@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowUp, ArrowDown, Pencil, Trash2, Plus, Check, X } from 'lucide-react'
+import { ArrowUp, ArrowDown, Pencil, Trash2, Plus, Check, X, MoveRight } from 'lucide-react'
 import { salonsApi } from '@/api/salons'
 import { tablesApi } from '@/api/tables'
 import { Card } from '@/components/ui/Card'
@@ -19,6 +19,8 @@ export default function SalonesPage() {
   const [editingSalonId, setEditingSalonId] = useState<number | null>(null)
   const [editSalonName, setEditSalonName] = useState('')
   const [activeSalonId, setActiveSalonId] = useState<number | null>(null)
+  const [dragHoverSalonId, setDragHoverSalonId] = useState<number | null>(null)
+  const dropTargetRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
   const { data: salones, isLoading: loadingSalones } = useQuery({
     queryKey: ['salons'],
@@ -82,8 +84,43 @@ export default function SalonesPage() {
     onError: (e) => toast.error('No se pudo mover la mesa', { description: getApiErrorMessage(e) }),
   })
 
+  const moveTableToSalon = useMutation({
+    mutationFn: ({ id, number, salonId }: { id: number; number: number; salonId: number }) =>
+      tablesApi.renameTable(id, number, salonId),
+    onSuccess: (_, vars) => {
+      const salonName = salones?.find((s) => s.id === vars.salonId)?.name ?? 'otro salón'
+      toast.success(`Mesa movida a ${salonName}`)
+      queryClient.invalidateQueries({ queryKey: ['tables'] })
+      invalidateSalones()
+    },
+    onError: (e) => toast.error('No se pudo mover la mesa de salón', { description: getApiErrorMessage(e) }),
+  })
+
   const tables = (data?.tables ?? []).filter((t) => t.salonId === activeSalonId)
   const activeSalon = salones?.find((s) => s.id === activeSalonId)
+  const otherSalones = (salones ?? []).filter((s) => s.id !== activeSalonId)
+
+  const salonAt = (clientX: number, clientY: number) => {
+    for (const salon of otherSalones) {
+      const el = dropTargetRefs.current[salon.id]
+      if (!el) continue
+      const rect = el.getBoundingClientRect()
+      if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+        return salon.id
+      }
+    }
+    return null
+  }
+
+  const handleDragPoint = (clientX: number, clientY: number) => setDragHoverSalonId(salonAt(clientX, clientY))
+
+  const handleDropOutside = (tableId: number, clientX: number, clientY: number) => {
+    const targetSalonId = salonAt(clientX, clientY)
+    setDragHoverSalonId(null)
+    if (targetSalonId == null) return
+    const table = tables.find((t) => t.id === tableId)
+    if (table) moveTableToSalon.mutate({ id: tableId, number: table.number, salonId: targetSalonId })
+  }
 
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-8 pb-10">
@@ -213,7 +250,31 @@ export default function SalonesPage() {
           </p>
           <p className="text-xs text-neutral-400 mb-2">
             Arrastra cada mesa a la casilla donde está de verdad en el salón — se acomoda sola a la cuadrícula.
+            {otherSalones.length > 0 && ' Suéltala sobre otro salón para mandarla ahí.'}
           </p>
+
+          {otherSalones.length > 0 && (
+            <div className="flex gap-2 mb-2 flex-wrap">
+              {otherSalones.map((salon) => (
+                <div
+                  key={salon.id}
+                  ref={(el) => {
+                    dropTargetRefs.current[salon.id] = el
+                  }}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border-2 border-dashed transition-colors',
+                    dragHoverSalonId === salon.id
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/15 text-brand-700 dark:text-brand-400'
+                      : 'border-neutral-300 dark:border-neutral-600 text-neutral-500',
+                  )}
+                >
+                  <MoveRight size={14} />
+                  {salon.name}
+                </div>
+              ))}
+            </div>
+          )}
+
           {loadingTables ? (
             <Skeleton className="h-[260px] w-full rounded-2xl" />
           ) : (
@@ -221,6 +282,8 @@ export default function SalonesPage() {
               tables={tables}
               editable
               onPositionChange={(id, x, y) => updatePosition.mutate({ id, x, y })}
+              onDragPoint={handleDragPoint}
+              onDropOutside={handleDropOutside}
             />
           )}
         </>
