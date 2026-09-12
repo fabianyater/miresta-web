@@ -211,7 +211,9 @@ export default function SalonesPage() {
           <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1">
             Plano — {activeSalon?.name}
           </p>
-          <p className="text-xs text-neutral-400 mb-2">Arrastra cada mesa a donde está de verdad en el salón.</p>
+          <p className="text-xs text-neutral-400 mb-2">
+            Arrastra cada mesa a la casilla donde está de verdad en el salón — se acomoda sola a la cuadrícula.
+          </p>
           {loadingTables ? (
             <Skeleton className="h-[260px] w-full rounded-2xl" />
           ) : (
