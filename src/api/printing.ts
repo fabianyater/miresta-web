@@ -18,4 +18,7 @@ export const printingApi = {
 
   updatePrinterSetting: (data: UpdatePrinterSettingRequest) =>
     apiClient.put<PrinterSettingResponse>('/api/v1/printer-setting', data).then((r) => r.data),
+
+  printTestTicket: () =>
+    apiClient.post<TicketPreviewResponse>('/api/v1/printer-setting/test-print').then((r) => r.data),
 }

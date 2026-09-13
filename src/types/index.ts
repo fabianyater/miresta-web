@@ -517,11 +517,27 @@ export interface PriceSettingHistoryResponse {
 export interface PrinterSettingResponse {
   printerName: string
   printingEnabled: boolean
+  headerLine1: string
+  headerLine2: string | null
+  addressLine: string | null
+  footerMessage: string | null
+  paperWidthChars: number
+  autoCut: boolean
+  retryCount: number
+  timeoutSeconds: number
 }
 
 export interface UpdatePrinterSettingRequest {
   printerName: string
   printingEnabled: boolean
+  headerLine1: string
+  headerLine2: string | null
+  addressLine: string | null
+  footerMessage: string | null
+  paperWidthChars: number
+  autoCut: boolean
+  retryCount: number
+  timeoutSeconds: number
 }
 
 export interface TicketLineResponse {
