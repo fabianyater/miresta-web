@@ -7,6 +7,7 @@ import { menusApi } from '@/api/menus'
 import { ordersApi } from '@/api/orders'
 import { customersApi } from '@/api/customers'
 import { printingApi } from '@/api/printing'
+import { tablesApi } from '@/api/tables'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -95,6 +96,16 @@ export default function TomarPedidoPage() {
     enabled: !!tableId,
     refetchInterval: 15000,
   })
+
+  // `tableId` en la URL es el id de la mesa (llave primaria), no su número — hay que
+  // buscarlo en la lista de mesas para mostrar el número real (ej. "Mesa 6", no
+  // "Mesa 8" si esa mesa quedó con el id 8 pero renombrada al número 6).
+  const { data: tablesSummary } = useQuery({
+    queryKey: ['tables'],
+    queryFn: tablesApi.getTables,
+    enabled: !!tableId,
+  })
+  const currentTableNumber = tablesSummary?.tables.find((t) => t.id === Number(tableId))?.number
 
   const { data: customers } = useQuery({
     queryKey: ['customers'],
@@ -376,7 +387,7 @@ export default function TomarPedidoPage() {
       </button>
 
       <h1 className="text-xl md:text-2xl font-bold text-neutral-900 dark:text-neutral-50 tracking-tight mb-1">
-        {tableId ? `Mesa ${tableId}` : 'Pedido para llevar'}
+        {tableId ? `Mesa ${currentTableNumber ?? '…'}` : 'Pedido para llevar'}
       </h1>
       <p className="text-sm text-neutral-500 mb-5">Selecciona los productos del pedido</p>
 
