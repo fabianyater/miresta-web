@@ -217,16 +217,20 @@ export default function TomarPedidoPage() {
     return map
   }, [catalog, menuProductIds, alwaysAvailableCategoryNames, extraProductIds, mealType])
 
+  const categoryCodeByName = useMemo(
+    () => new Map((categories ?? []).map((c) => [c.name, c.code])),
+    [categories],
+  )
+
   // Bebidas siempre al final, Adicionales justo antes — el resto en el orden en que
   // vengan del catálogo.
   const orderedCategories = useMemo(() => {
-    const codeByName = new Map((categories ?? []).map((c) => [c.name, c.code]))
     const rank = (name: string) => {
-      const code = codeByName.get(name)
+      const code = categoryCodeByName.get(name)
       return code === 'BEBIDA' ? 2 : code === 'ADICIONAL' ? 1 : 0
     }
     return [...grouped.entries()].sort((a, b) => rank(a[0]) - rank(b[0]))
-  }, [grouped, categories])
+  }, [grouped, categoryCodeByName])
 
   // Reinicia el plato en construcción cada vez que se cambia de tipo de comida (las
   // selecciones eran contra otro menú) — nada queda preseleccionado, el mesero elige
@@ -244,6 +248,35 @@ export default function TomarPedidoPage() {
     // cada refetch del menú (evita borrar lo que el mesero ya armó).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mealType, catalog])
+
+  // Los acompañantes (ensalada, arroz, maduro...) del menú de hoy arrancan ya puestos,
+  // como si el plato saliera completo — el mesero solo quita los que el cliente no
+  // quiera ("sin ensalada") o le da otra vez a "+" para doblar uno ("doble arroz"). No
+  // afecta el precio: el combo ya cobra ese acompañante, y repetirlo tampoco cobra
+  // adicional (ver PricingCalculator). Se semilla solo al cambiar de tipo de comida o
+  // de menú del día — no en cada refetch del menú, para no pisar lo que el mesero ya
+  // quitó/dobló a mano.
+  useEffect(() => {
+    if (!catalog || !categories || !menuOffering) return
+    const acompCategoryNames = new Set(categories.filter((c) => c.code === 'ACOMPANANTE').map((c) => c.name))
+    if (acompCategoryNames.size === 0) return
+    const defaultIds = new Set<number>()
+    for (const item of menuOffering.items) {
+      for (const p of item.products) {
+        const product = catalog.find((cp) => cp.id === p.id)
+        if (product && acompCategoryNames.has(product.category?.name ?? '')) defaultIds.add(p.id)
+      }
+    }
+    if (defaultIds.size === 0) return
+    setLines((prev) => {
+      const next = { ...prev }
+      for (const id of defaultIds) {
+        if (!(id in next)) next[id] = { quantity: 1, replacement: '' }
+      }
+      return next
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mealType, menuOffering?.id, !!catalog, !!categories])
 
   // Buscador para agregar un producto que no está hoy en el menú (ni es bebida/
   // adicional siempre disponible) — ej. un huevo cuando la proteína de hoy es otra.
@@ -539,9 +572,16 @@ export default function TomarPedidoPage() {
         </div>
       )}
       <div className="space-y-3">
-        {!loadingCatalog && !loadingMenus && orderedCategories.map(([category, products]) => (
+        {!loadingCatalog && !loadingMenus && orderedCategories.map(([category, products]) => {
+          const isAcompanante = categoryCodeByName.get(category) === 'ACOMPANANTE'
+          return (
           <div key={category} className="rounded-xl border border-neutral-200 dark:border-neutral-700 p-3">
             <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-2">{category}</h2>
+            {isAcompanante && (
+              <p className="text-xs text-neutral-400 -mt-1 mb-2">
+                Ya vienen puestos — quita los que el cliente no quiera o dale otra vez a "+" para doblar uno.
+              </p>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {products?.map((product) => {
                 const line = lines[product.id]
@@ -603,7 +643,7 @@ export default function TomarPedidoPage() {
                         <Plus size={13} />
                       </button>
                     </div>
-                    {line && (
+                    {line && !isAcompanante && (
                       <button
                         onClick={() => setReplacementOpenFor(replacementOpenFor === product.id ? null : product.id)}
                         className={cn(
@@ -619,7 +659,7 @@ export default function TomarPedidoPage() {
                         </span>
                       </button>
                     )}
-                    {line && replacementOpenFor === product.id && (
+                    {line && !isAcompanante && replacementOpenFor === product.id && (
                       <div className="flex flex-wrap gap-1">
                         {REPLACEMENT_OPTIONS.map((opt) => (
                           <button
@@ -645,7 +685,8 @@ export default function TomarPedidoPage() {
               })}
             </div>
           </div>
-        ))}
+          )
+        })}
         {!loadingCatalog && !loadingMenus && grouped.size === 0 && (
           <p className="text-sm text-neutral-400 text-center py-8">
             No hay productos disponibles para {mealType.toLowerCase()} hoy.
