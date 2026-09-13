@@ -41,6 +41,11 @@ export const catalogApi = {
   // del viejo campo único que se sobreescribía en cada edición).
   getStock: () => apiClient.get<Record<number, number>>('/api/v1/products/stock').then((r) => r.data),
 
+  // productId -> fecha (YYYY-MM-DD) del lote con existencias que primero vence — para
+  // el badge "Vence..." en la card del catálogo.
+  getNearestExpiration: () =>
+    apiClient.get<Record<number, string>>('/api/v1/products/nearest-expiration').then((r) => r.data),
+
   getBatches: (productId: number) =>
     apiClient.get<ProductBatchResponse[]>(`/api/v1/products/${productId}/batches`).then((r) => r.data),
 

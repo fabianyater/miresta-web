@@ -13,7 +13,15 @@ import { CategoryChip, CategoryRow } from '@/components/ui/CategoryNav'
 import { ROLE_ICONS, ROLE_OPTIONS } from '@/lib/comboCategoryUi'
 import { toast } from '@/store/toast'
 import { getApiErrorMessage } from '@/lib/apiErrors'
+import { cn, todayIso } from '@/lib/utils'
 import type { CategoryResponse, ComboCategory, ProductDetailResponse, ProductInfo } from '@/types'
+
+const SOON_TO_EXPIRE_DAYS = 7
+
+function daysUntil(dateIso: string): number {
+  const ms = new Date(dateIso).getTime() - new Date(todayIso()).getTime()
+  return Math.round(ms / 86_400_000)
+}
 
 /** Fetches the full product record before showing the edit form — split this way
  * (wrapper fetches, inner form initializes its state straight from props) so the
@@ -157,6 +165,7 @@ function ProductBatchesSection({ productId }: { productId: number }) {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['product-batches', productId] })
     queryClient.invalidateQueries({ queryKey: ['products-stock'] })
+    queryClient.invalidateQueries({ queryKey: ['products-nearest-expiration'] })
   }
 
   const addBatch = useMutation({
@@ -282,6 +291,13 @@ export default function CatalogoPage() {
   const { data: products, isLoading: loadingProducts } = useQuery({
     queryKey: ['products'],
     queryFn: catalogApi.getProducts,
+  })
+
+  // Solo trae fecha para los productos que sí tienen lotes con vencimiento
+  // registrado (hoy, básicamente bebidas) — el resto del catálogo no aparece aquí.
+  const { data: nearestExpiration } = useQuery({
+    queryKey: ['products-nearest-expiration'],
+    queryFn: catalogApi.getNearestExpiration,
   })
 
   const countByCategoryName = useMemo(() => {
@@ -508,6 +524,8 @@ export default function CatalogoPage() {
             {!loadingProducts && visibleProducts.map((p) => {
               const cat = categories?.find((c) => c.name === p.category.name)
               const Icon = cat ? ROLE_ICONS[cat.code] : Package
+              const expiration = nearestExpiration?.[p.id]
+              const soon = expiration != null && daysUntil(expiration) <= SOON_TO_EXPIRE_DAYS
               return (
                 <Card key={p.id} className="relative p-3 flex flex-col items-center text-center gap-2 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors group">
                   <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -532,6 +550,11 @@ export default function CatalogoPage() {
                   <div className="min-w-0">
                     <p className="text-[10px] text-neutral-400 uppercase tracking-wide truncate">{p.category.name}</p>
                     <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50 truncate">{p.name}</p>
+                    {expiration && (
+                      <p className={cn('text-[10px] mt-0.5', soon ? 'text-status-busy font-medium' : 'text-neutral-400')}>
+                        Vence {expiration.split('-').reverse().join('/')}
+                      </p>
+                    )}
                   </div>
                 </Card>
               )
