@@ -139,6 +139,7 @@ export default function SalonesPage() {
       toast.success('Plano aplicado')
       setApplyLayoutId(null)
       queryClient.invalidateQueries({ queryKey: ['tables'] })
+      invalidateSalones()
     },
     onError: (e) => toast.error('No se pudo aplicar el plano', { description: getApiErrorMessage(e) }),
   })
@@ -457,9 +458,9 @@ export default function SalonesPage() {
           return (
             <>
               <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-4">
-                Las mesas de {activeSalon?.name} volverán a las posiciones de "{target?.name}"
-                {target && ` (guardado ${formatDateTime(target.savedAt)})`}. Los cambios que hayas hecho después de
-                guardar se perderán.
+                Las mesas de "{target?.name}"{target && ` (guardado ${formatDateTime(target.savedAt)})`} volverán a
+                sus posiciones en {activeSalon?.name} — si alguna se había movido a otro salón, regresa aquí. Los
+                cambios que hayas hecho después de guardar se perderán.
               </p>
               <div className="flex justify-end gap-2">
                 <Button variant="secondary" onClick={() => setApplyLayoutId(null)}>
