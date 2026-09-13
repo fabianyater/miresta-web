@@ -3,6 +3,43 @@
 
 export type Role = 'OWNER' | 'ADMIN' | 'MESERO'
 
+export type Permission =
+  | 'MESAS_VER'
+  | 'MESAS_EDITAR'
+  | 'MESAS_UNIR'
+  | 'SALONES_VER'
+  | 'SALONES_EDITAR'
+  | 'CATALOGO_VER'
+  | 'CATALOGO_EDITAR'
+  | 'CLIENTES_VER'
+  | 'CLIENTES_EDITAR'
+  | 'MENU_VER'
+  | 'MENU_EDITAR'
+  | 'PEDIDOS_CREAR'
+  | 'PEDIDOS_COBRAR'
+  | 'PEDIDOS_REPORTES'
+  | 'CAJA_VER'
+  | 'CAJA_EDITAR'
+  | 'PRECIOS_VER'
+  | 'PRECIOS_EDITAR'
+  | 'IMPRESORA_CONFIG'
+  | 'COCINA_VER'
+  | 'COCINA_FRASES_EDITAR'
+  | 'USUARIOS_VER'
+  | 'USUARIOS_EDITAR'
+
+export interface PermissionInfo {
+  code: Permission
+  domain: string
+  description: string
+}
+
+export interface RolePermissionsResponse {
+  catalog: PermissionInfo[]
+  // Solo trae ADMIN y MESERO — OWNER siempre tiene todos y no es editable.
+  rolePermissions: Partial<Record<Role, Permission[]>>
+}
+
 export type ComboCategory =
   | 'SOPA'
   | 'PRINCIPIO'

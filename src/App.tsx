@@ -26,6 +26,7 @@ import ImpresoraPage from '@/pages/admin/ImpresoraPage'
 import FrasesCocinaPage from '@/pages/admin/FrasesCocinaPage'
 import CajaPage from '@/pages/admin/CajaPage'
 import SalonesPage from '@/pages/admin/SalonesPage'
+import RolesPermisosPage from '@/pages/admin/RolesPermisosPage'
 
 // Registers react-router's navigate() so code outside the tree (the axios
 // interceptor, on a 401) can redirect without a hard page reload.
@@ -61,17 +62,37 @@ export default function App() {
               <Route path="/clientes/:customerId" element={<ClienteDetallePage />} />
               <Route path="/config" element={<ConfigPage />} />
 
-              <Route element={<ProtectedRoute roles={['ADMIN', 'OWNER']} />}>
-                <Route path="/admin" element={<AdminHomePage />} />
+              <Route path="/admin" element={<AdminHomePage />} />
+
+              <Route element={<ProtectedRoute permission="USUARIOS_VER" />}>
                 <Route path="/admin/usuarios" element={<UsuariosPage />} />
+              </Route>
+              <Route element={<ProtectedRoute permission="PRECIOS_VER" />}>
                 <Route path="/admin/precios" element={<PreciosPage />} />
+              </Route>
+              <Route element={<ProtectedRoute permission="CATALOGO_EDITAR" />}>
                 <Route path="/admin/catalogo" element={<CatalogoPage />} />
+              </Route>
+              <Route element={<ProtectedRoute permission="MENU_EDITAR" />}>
                 <Route path="/admin/menu" element={<MenuPage />} />
+              </Route>
+              <Route element={<ProtectedRoute permission="PEDIDOS_REPORTES" />}>
                 <Route path="/admin/reportes" element={<ReportesPage />} />
+              </Route>
+              <Route element={<ProtectedRoute permission="IMPRESORA_CONFIG" />}>
                 <Route path="/admin/impresora" element={<ImpresoraPage />} />
+              </Route>
+              <Route element={<ProtectedRoute permission="COCINA_FRASES_EDITAR" />}>
                 <Route path="/admin/frases-cocina" element={<FrasesCocinaPage />} />
+              </Route>
+              <Route element={<ProtectedRoute permission="CAJA_EDITAR" />}>
                 <Route path="/admin/caja" element={<CajaPage />} />
+              </Route>
+              <Route element={<ProtectedRoute permission="SALONES_EDITAR" />}>
                 <Route path="/admin/salones" element={<SalonesPage />} />
+              </Route>
+              <Route element={<ProtectedRoute roles={['OWNER']} />}>
+                <Route path="/admin/roles-permisos" element={<RolesPermisosPage />} />
               </Route>
             </Route>
           </Route>

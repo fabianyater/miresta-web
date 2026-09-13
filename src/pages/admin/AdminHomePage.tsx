@@ -1,25 +1,43 @@
 import { Link } from 'react-router-dom'
-import { Users, Tag, Package, CalendarDays, BarChart3, Printer, MessageSquare, Wallet, LayoutGrid } from 'lucide-react'
+import { Users, Tag, Package, CalendarDays, BarChart3, Printer, MessageSquare, Wallet, LayoutGrid, Shield } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
+import { useAuthStore } from '@/store/auth'
+import { isOwnerRole } from '@/lib/roles'
+import type { Permission } from '@/types'
 
-const sections = [
-  { to: '/admin/usuarios', label: 'Usuarios', description: 'Cuentas y roles', icon: Users },
-  { to: '/admin/precios', label: 'Precios', description: 'Motor de precios', icon: Tag },
-  { to: '/admin/catalogo', label: 'Catálogo', description: 'Categorías y productos', icon: Package },
-  { to: '/admin/menu', label: 'Menú del día', description: 'Configurar el menú', icon: CalendarDays },
-  { to: '/admin/salones', label: 'Salones', description: 'Secciones y plano de mesas', icon: LayoutGrid },
-  { to: '/admin/caja', label: 'Caja', description: 'Apertura, cierre y arqueo', icon: Wallet },
-  { to: '/admin/reportes', label: 'Reportes', description: 'Ventas del día', icon: BarChart3 },
-  { to: '/admin/impresora', label: 'Impresora', description: 'Configuración de red', icon: Printer },
-  { to: '/admin/frases-cocina', label: 'Frases de cocina', description: 'Botones de «Avisar a cocina»', icon: MessageSquare },
+const sections: { to: string; label: string; description: string; icon: typeof Users; permission: Permission }[] = [
+  { to: '/admin/usuarios', label: 'Usuarios', description: 'Cuentas y roles', icon: Users, permission: 'USUARIOS_VER' },
+  { to: '/admin/precios', label: 'Precios', description: 'Motor de precios', icon: Tag, permission: 'PRECIOS_VER' },
+  { to: '/admin/catalogo', label: 'Catálogo', description: 'Categorías y productos', icon: Package, permission: 'CATALOGO_EDITAR' },
+  { to: '/admin/menu', label: 'Menú del día', description: 'Configurar el menú', icon: CalendarDays, permission: 'MENU_EDITAR' },
+  { to: '/admin/salones', label: 'Salones', description: 'Secciones y plano de mesas', icon: LayoutGrid, permission: 'SALONES_EDITAR' },
+  { to: '/admin/caja', label: 'Caja', description: 'Apertura, cierre y arqueo', icon: Wallet, permission: 'CAJA_EDITAR' },
+  { to: '/admin/reportes', label: 'Reportes', description: 'Ventas del día', icon: BarChart3, permission: 'PEDIDOS_REPORTES' },
+  { to: '/admin/impresora', label: 'Impresora', description: 'Configuración de red', icon: Printer, permission: 'IMPRESORA_CONFIG' },
+  { to: '/admin/frases-cocina', label: 'Frases de cocina', description: 'Botones de «Avisar a cocina»', icon: MessageSquare, permission: 'COCINA_FRASES_EDITAR' },
 ]
 
 export default function AdminHomePage() {
+  const user = useAuthStore((s) => s.user)
+  const hasPermission = useAuthStore((s) => s.hasPermission)
+  const visibleSections = sections.filter((s) => hasPermission(s.permission))
+
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-8">
       <h1 className="text-xl md:text-2xl font-bold text-neutral-900 dark:text-neutral-50 tracking-tight mb-5">Administración</h1>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {sections.map(({ to, label, description, icon: Icon }) => (
+        {isOwnerRole(user?.role) && (
+          <Link to="/admin/roles-permisos">
+            <Card className="p-4 h-full flex flex-col gap-2 hover:border-brand-300 dark:hover:border-brand-500/50 transition-colors">
+              <div className="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-500/15 flex items-center justify-center">
+                <Shield size={18} className="text-brand-600 dark:text-brand-400" />
+              </div>
+              <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">Roles y permisos</span>
+              <span className="text-xs text-neutral-500">Qué puede hacer cada rol</span>
+            </Card>
+          </Link>
+        )}
+        {visibleSections.map(({ to, label, description, icon: Icon }) => (
           <Link key={to} to={to}>
             <Card className="p-4 h-full flex flex-col gap-2 hover:border-brand-300 dark:hover:border-brand-500/50 transition-colors">
               <div className="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-500/15 flex items-center justify-center">

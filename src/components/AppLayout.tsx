@@ -1,4 +1,7 @@
+import { useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { permissionsApi } from '@/api/permissions'
 import {
   UtensilsCrossed,
   ClipboardList,
@@ -15,11 +18,12 @@ import {
   Wallet,
   LayoutGrid,
 } from 'lucide-react'
-import { SlidersHorizontal } from 'lucide-react'
+import { SlidersHorizontal, Shield } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { cn } from '@/lib/utils'
-import { isAdminRole } from '@/lib/roles'
+import { isOwnerRole } from '@/lib/roles'
 import { KitchenComposer } from '@/components/KitchenComposer'
+import type { Permission } from '@/types'
 
 const operationalNav = [
   { to: '/mesas', label: 'Mesas', icon: UtensilsCrossed },
@@ -31,22 +35,36 @@ const adminNav = [
   { to: '/admin', label: 'Admin', icon: Settings, end: true },
 ]
 
-const desktopAdminNav = [
-  { to: '/admin/usuarios', label: 'Usuarios', icon: Users },
-  { to: '/admin/precios', label: 'Precios', icon: Tag },
-  { to: '/admin/catalogo', label: 'Catálogo', icon: Package },
-  { to: '/admin/menu', label: 'Menú del día', icon: CalendarDays },
-  { to: '/admin/salones', label: 'Salones', icon: LayoutGrid },
-  { to: '/admin/caja', label: 'Caja', icon: Wallet },
-  { to: '/admin/reportes', label: 'Reportes', icon: BarChart3 },
-  { to: '/admin/impresora', label: 'Impresora', icon: Printer },
-  { to: '/admin/frases-cocina', label: 'Frases de cocina', icon: MessageSquare },
+const desktopAdminNav: { to: string; label: string; icon: typeof Users; permission: Permission }[] = [
+  { to: '/admin/usuarios', label: 'Usuarios', icon: Users, permission: 'USUARIOS_VER' },
+  { to: '/admin/precios', label: 'Precios', icon: Tag, permission: 'PRECIOS_VER' },
+  { to: '/admin/catalogo', label: 'Catálogo', icon: Package, permission: 'CATALOGO_EDITAR' },
+  { to: '/admin/menu', label: 'Menú del día', icon: CalendarDays, permission: 'MENU_EDITAR' },
+  { to: '/admin/salones', label: 'Salones', icon: LayoutGrid, permission: 'SALONES_EDITAR' },
+  { to: '/admin/caja', label: 'Caja', icon: Wallet, permission: 'CAJA_EDITAR' },
+  { to: '/admin/reportes', label: 'Reportes', icon: BarChart3, permission: 'PEDIDOS_REPORTES' },
+  { to: '/admin/impresora', label: 'Impresora', icon: Printer, permission: 'IMPRESORA_CONFIG' },
+  { to: '/admin/frases-cocina', label: 'Frases de cocina', icon: MessageSquare, permission: 'COCINA_FRASES_EDITAR' },
 ]
 
 export default function AppLayout() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
-  const isAdmin = isAdminRole(user?.role)
+  const hasPermission = useAuthStore((s) => s.hasPermission)
+  const setPermissions = useAuthStore((s) => s.setPermissions)
+  const isOwner = isOwnerRole(user?.role)
+  const visibleAdminNav = desktopAdminNav.filter((item) => hasPermission(item.permission))
+  const isAdmin = isOwner || visibleAdminNav.length > 0
+
+  // Refresca los permisos efectivos en cada carga de la app — por si el owner
+  // editó la matriz de roles desde el último login de este usuario.
+  const { data: permissions } = useQuery({
+    queryKey: ['me-permissions'],
+    queryFn: permissionsApi.getMyPermissions,
+  })
+  useEffect(() => {
+    if (permissions) setPermissions(permissions)
+  }, [permissions, setPermissions])
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-neutral-50 dark:bg-neutral-900">
@@ -72,9 +90,10 @@ export default function AppLayout() {
               <p className="px-3 pt-5 pb-1.5 text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
                 Administración
               </p>
-              {desktopAdminNav.map((item) => (
+              {visibleAdminNav.map((item) => (
                 <SidebarLink key={item.to} {...item} />
               ))}
+              {isOwner && <SidebarLink to="/admin/roles-permisos" label="Roles y permisos" icon={Shield} />}
             </>
           )}
         </nav>
