@@ -21,7 +21,10 @@ export default function SalonesPage() {
   const [editSalonName, setEditSalonName] = useState('')
   const [activeSalonId, setActiveSalonId] = useState<number | null>(null)
   const [dragHoverSalonId, setDragHoverSalonId] = useState<number | null>(null)
-  const [confirmApplyOpen, setConfirmApplyOpen] = useState(false)
+  const [newLayoutName, setNewLayoutName] = useState('')
+  const [editingLayoutId, setEditingLayoutId] = useState<number | null>(null)
+  const [editLayoutName, setEditLayoutName] = useState('')
+  const [applyLayoutId, setApplyLayoutId] = useState<number | null>(null)
   const dropTargetRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
   const { data: salones, isLoading: loadingSalones } = useQuery({
@@ -34,9 +37,9 @@ export default function SalonesPage() {
     queryFn: tablesApi.getTables,
   })
 
-  const { data: layout } = useQuery({
-    queryKey: ['salon-layout', activeSalonId],
-    queryFn: () => salonsApi.getLayout(activeSalonId as number),
+  const { data: layouts } = useQuery({
+    queryKey: ['salon-layouts', activeSalonId],
+    queryFn: () => salonsApi.getLayouts(activeSalonId as number),
     enabled: activeSalonId != null,
   })
 
@@ -45,6 +48,12 @@ export default function SalonesPage() {
       setActiveSalonId(salones[0].id)
     }
   }, [salones, activeSalonId])
+
+  useEffect(() => {
+    setNewLayoutName('')
+    setEditingLayoutId(null)
+    setApplyLayoutId(null)
+  }, [activeSalonId])
 
   const invalidateSalones = () => queryClient.invalidateQueries({ queryKey: ['salons'] })
 
@@ -92,20 +101,43 @@ export default function SalonesPage() {
     onError: (e) => toast.error('No se pudo mover la mesa', { description: getApiErrorMessage(e) }),
   })
 
+  const invalidateLayouts = () => queryClient.invalidateQueries({ queryKey: ['salon-layouts', activeSalonId] })
+
   const saveLayout = useMutation({
-    mutationFn: () => salonsApi.saveLayout(activeSalonId as number),
+    mutationFn: (name: string) => salonsApi.saveLayout(activeSalonId as number, name),
     onSuccess: () => {
       toast.success('Plano guardado')
-      queryClient.invalidateQueries({ queryKey: ['salon-layout', activeSalonId] })
+      setNewLayoutName('')
+      invalidateLayouts()
     },
     onError: (e) => toast.error('No se pudo guardar el plano', { description: getApiErrorMessage(e) }),
   })
 
+  const renameLayout = useMutation({
+    mutationFn: ({ layoutId, name }: { layoutId: number; name: string }) =>
+      salonsApi.renameLayout(activeSalonId as number, layoutId, name),
+    onSuccess: () => {
+      toast.success('Plano renombrado')
+      setEditingLayoutId(null)
+      invalidateLayouts()
+    },
+    onError: (e) => toast.error('No se pudo renombrar el plano', { description: getApiErrorMessage(e) }),
+  })
+
+  const deleteLayout = useMutation({
+    mutationFn: (layoutId: number) => salonsApi.deleteLayout(activeSalonId as number, layoutId),
+    onSuccess: () => {
+      toast.success('Plano eliminado')
+      invalidateLayouts()
+    },
+    onError: (e) => toast.error('No se pudo eliminar el plano', { description: getApiErrorMessage(e) }),
+  })
+
   const applyLayout = useMutation({
-    mutationFn: () => salonsApi.applyLayout(activeSalonId as number),
+    mutationFn: (layoutId: number) => salonsApi.applyLayout(activeSalonId as number, layoutId),
     onSuccess: () => {
       toast.success('Plano aplicado')
-      setConfirmApplyOpen(false)
+      setApplyLayoutId(null)
       queryClient.invalidateQueries({ queryKey: ['tables'] })
     },
     onError: (e) => toast.error('No se pudo aplicar el plano', { description: getApiErrorMessage(e) }),
@@ -272,35 +304,8 @@ export default function SalonesPage() {
 
       {activeSalonId && (
         <>
-          <div className="flex items-start justify-between gap-3 mb-1">
-            <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide pt-1.5">
-              Plano — {activeSalon?.name}
-            </p>
-            <div className="flex gap-2 flex-shrink-0">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => saveLayout.mutate()}
-                loading={saveLayout.isPending}
-              >
-                <Save size={14} />
-                Guardar plano
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setConfirmApplyOpen(true)}
-                disabled={!layout}
-              >
-                <RotateCcw size={14} />
-                Aplicar guardado
-              </Button>
-            </div>
-          </div>
-          <p className="text-xs text-neutral-400 mb-2">
-            {layout
-              ? `Guardado ${formatDateTime(layout.savedAt)} por ${layout.savedBy}.`
-              : 'Todavía no hay un plano guardado para este salón.'}
+          <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1">
+            Plano — {activeSalon?.name}
           </p>
           <p className="text-xs text-neutral-400 mb-2">
             Arrastra cada mesa a la casilla donde está de verdad en el salón — se acomoda sola a la cuadrícula.
@@ -340,23 +345,136 @@ export default function SalonesPage() {
               onDropOutside={handleDropOutside}
             />
           )}
+
+          <Card className="p-4 mt-4">
+            <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2">Planos guardados</p>
+
+            <div className="space-y-1.5 mb-3">
+              {layouts?.map((l) => (
+                <div
+                  key={l.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-50 dark:bg-neutral-700"
+                >
+                  {editingLayoutId === l.id ? (
+                    <>
+                      <Input
+                        autoFocus
+                        value={editLayoutName}
+                        onChange={(e) => setEditLayoutName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && editLayoutName.trim()) {
+                            renameLayout.mutate({ layoutId: l.id, name: editLayoutName.trim() })
+                          }
+                          if (e.key === 'Escape') setEditingLayoutId(null)
+                        }}
+                        className="flex-1"
+                      />
+                      <button
+                        onClick={() =>
+                          editLayoutName.trim() &&
+                          renameLayout.mutate({ layoutId: l.id, name: editLayoutName.trim() })
+                        }
+                        disabled={!editLayoutName.trim()}
+                        className="text-status-free disabled:opacity-30"
+                      >
+                        <Check size={18} />
+                      </button>
+                      <button
+                        onClick={() => setEditingLayoutId(null)}
+                        className="text-neutral-400 hover:text-neutral-600"
+                      >
+                        <X size={18} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50 truncate">
+                          {l.name}
+                        </p>
+                        <p className="text-xs text-neutral-400">
+                          Guardado {formatDateTime(l.savedAt)} por {l.savedBy} · {l.tableCount} mesa
+                          {l.tableCount === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setApplyLayoutId(l.id)}
+                        title="Aplicar este plano"
+                        className="p-1 text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400"
+                      >
+                        <RotateCcw size={15} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingLayoutId(l.id)
+                          setEditLayoutName(l.name)
+                        }}
+                        className="p-1 text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => deleteLayout.mutate(l.id)}
+                        className="p-1 text-neutral-400 hover:text-red-500"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+              {layouts?.length === 0 && (
+                <p className="text-sm text-neutral-400 py-2">Todavía no hay planos guardados para este salón.</p>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Input
+                placeholder="Nombre del plano (ej. Fin de semana)"
+                value={newLayoutName}
+                onChange={(e) => setNewLayoutName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newLayoutName.trim()) saveLayout.mutate(newLayoutName.trim())
+                }}
+                className="flex-1"
+              />
+              <Button
+                onClick={() => saveLayout.mutate(newLayoutName.trim())}
+                disabled={!newLayoutName.trim()}
+                loading={saveLayout.isPending}
+              >
+                <Save size={16} />
+                Guardar plano actual
+              </Button>
+            </div>
+          </Card>
         </>
       )}
 
-      <Dialog open={confirmApplyOpen} onClose={() => setConfirmApplyOpen(false)} title="Aplicar plano guardado">
-        <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-4">
-          Las mesas de {activeSalon?.name} volverán a las posiciones guardadas
-          {layout && ` el ${formatDateTime(layout.savedAt)}`}. Los cambios que hayas hecho después de guardar se
-          perderán.
-        </p>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setConfirmApplyOpen(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={() => applyLayout.mutate()} loading={applyLayout.isPending}>
-            Aplicar
-          </Button>
-        </div>
+      <Dialog open={applyLayoutId != null} onClose={() => setApplyLayoutId(null)} title="Aplicar plano guardado">
+        {(() => {
+          const target = layouts?.find((l) => l.id === applyLayoutId)
+          return (
+            <>
+              <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-4">
+                Las mesas de {activeSalon?.name} volverán a las posiciones de "{target?.name}"
+                {target && ` (guardado ${formatDateTime(target.savedAt)})`}. Los cambios que hayas hecho después de
+                guardar se perderán.
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setApplyLayoutId(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => applyLayoutId != null && applyLayout.mutate(applyLayoutId)}
+                  loading={applyLayout.isPending}
+                >
+                  Aplicar
+                </Button>
+              </div>
+            </>
+          )
+        })()}
       </Dialog>
     </div>
   )

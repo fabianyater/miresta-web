@@ -209,7 +209,9 @@ export interface SalonResponse {
 }
 
 export interface SalonLayoutResponse {
+  id: number
   salonId: number
+  name: string
   savedAt: string
   savedBy: string
   tableCount: number

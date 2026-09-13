@@ -15,11 +15,18 @@ export const salonsApi = {
 
   deleteSalon: (id: number) => apiClient.delete(`/api/v1/salons/${id}`).then((r) => r.data),
 
-  getLayout: (id: number) =>
-    apiClient.get<SalonLayoutResponse | null>(`/api/v1/salons/${id}/layout`).then((r) => r.data || null),
+  getLayouts: (id: number) =>
+    apiClient.get<SalonLayoutResponse[]>(`/api/v1/salons/${id}/layouts`).then((r) => r.data),
 
-  saveLayout: (id: number) =>
-    apiClient.post<SalonLayoutResponse>(`/api/v1/salons/${id}/layout`).then((r) => r.data),
+  saveLayout: (id: number, name: string) =>
+    apiClient.post<SalonLayoutResponse>(`/api/v1/salons/${id}/layouts`, { name }).then((r) => r.data),
 
-  applyLayout: (id: number) => apiClient.post(`/api/v1/salons/${id}/layout/apply`).then((r) => r.data),
+  renameLayout: (id: number, layoutId: number, name: string) =>
+    apiClient.patch<SalonLayoutResponse>(`/api/v1/salons/${id}/layouts/${layoutId}`, { name }).then((r) => r.data),
+
+  deleteLayout: (id: number, layoutId: number) =>
+    apiClient.delete(`/api/v1/salons/${id}/layouts/${layoutId}`).then((r) => r.data),
+
+  applyLayout: (id: number, layoutId: number) =>
+    apiClient.post(`/api/v1/salons/${id}/layouts/${layoutId}/apply`).then((r) => r.data),
 }
