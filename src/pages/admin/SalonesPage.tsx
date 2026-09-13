@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowUp, ArrowDown, Pencil, Trash2, Plus, Check, X, MoveRight } from 'lucide-react'
+import { ArrowUp, ArrowDown, Pencil, Trash2, Plus, Check, X, MoveRight, Save, RotateCcw } from 'lucide-react'
 import { salonsApi } from '@/api/salons'
 import { tablesApi } from '@/api/tables'
 import { Card } from '@/components/ui/Card'
@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { BackLink } from '@/components/ui/BackLink'
+import { Dialog } from '@/components/ui/Dialog'
 import { SalonCanvas } from '@/components/SalonCanvas'
 import { toast } from '@/store/toast'
 import { getApiErrorMessage } from '@/lib/apiErrors'
-import { cn } from '@/lib/utils'
+import { cn, formatDateTime } from '@/lib/utils'
 
 export default function SalonesPage() {
   const queryClient = useQueryClient()
@@ -20,6 +21,7 @@ export default function SalonesPage() {
   const [editSalonName, setEditSalonName] = useState('')
   const [activeSalonId, setActiveSalonId] = useState<number | null>(null)
   const [dragHoverSalonId, setDragHoverSalonId] = useState<number | null>(null)
+  const [confirmApplyOpen, setConfirmApplyOpen] = useState(false)
   const dropTargetRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
   const { data: salones, isLoading: loadingSalones } = useQuery({
@@ -30,6 +32,12 @@ export default function SalonesPage() {
   const { data, isLoading: loadingTables } = useQuery({
     queryKey: ['tables'],
     queryFn: tablesApi.getTables,
+  })
+
+  const { data: layout } = useQuery({
+    queryKey: ['salon-layout', activeSalonId],
+    queryFn: () => salonsApi.getLayout(activeSalonId as number),
+    enabled: activeSalonId != null,
   })
 
   useEffect(() => {
@@ -82,6 +90,25 @@ export default function SalonesPage() {
     mutationFn: ({ id, x, y }: { id: number; x: number; y: number }) => tablesApi.updatePosition(id, x, y),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tables'] }),
     onError: (e) => toast.error('No se pudo mover la mesa', { description: getApiErrorMessage(e) }),
+  })
+
+  const saveLayout = useMutation({
+    mutationFn: () => salonsApi.saveLayout(activeSalonId as number),
+    onSuccess: () => {
+      toast.success('Plano guardado')
+      queryClient.invalidateQueries({ queryKey: ['salon-layout', activeSalonId] })
+    },
+    onError: (e) => toast.error('No se pudo guardar el plano', { description: getApiErrorMessage(e) }),
+  })
+
+  const applyLayout = useMutation({
+    mutationFn: () => salonsApi.applyLayout(activeSalonId as number),
+    onSuccess: () => {
+      toast.success('Plano aplicado')
+      setConfirmApplyOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['tables'] })
+    },
+    onError: (e) => toast.error('No se pudo aplicar el plano', { description: getApiErrorMessage(e) }),
   })
 
   const moveTableToSalon = useMutation({
@@ -245,8 +272,35 @@ export default function SalonesPage() {
 
       {activeSalonId && (
         <>
-          <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1">
-            Plano — {activeSalon?.name}
+          <div className="flex items-start justify-between gap-3 mb-1">
+            <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide pt-1.5">
+              Plano — {activeSalon?.name}
+            </p>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => saveLayout.mutate()}
+                loading={saveLayout.isPending}
+              >
+                <Save size={14} />
+                Guardar plano
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setConfirmApplyOpen(true)}
+                disabled={!layout}
+              >
+                <RotateCcw size={14} />
+                Aplicar guardado
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-neutral-400 mb-2">
+            {layout
+              ? `Guardado ${formatDateTime(layout.savedAt)} por ${layout.savedBy}.`
+              : 'Todavía no hay un plano guardado para este salón.'}
           </p>
           <p className="text-xs text-neutral-400 mb-2">
             Arrastra cada mesa a la casilla donde está de verdad en el salón — se acomoda sola a la cuadrícula.
@@ -288,6 +342,22 @@ export default function SalonesPage() {
           )}
         </>
       )}
+
+      <Dialog open={confirmApplyOpen} onClose={() => setConfirmApplyOpen(false)} title="Aplicar plano guardado">
+        <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-4">
+          Las mesas de {activeSalon?.name} volverán a las posiciones guardadas
+          {layout && ` el ${formatDateTime(layout.savedAt)}`}. Los cambios que hayas hecho después de guardar se
+          perderán.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setConfirmApplyOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={() => applyLayout.mutate()} loading={applyLayout.isPending}>
+            Aplicar
+          </Button>
+        </div>
+      </Dialog>
     </div>
   )
 }

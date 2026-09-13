@@ -208,6 +208,13 @@ export interface SalonResponse {
   tableCount: number
 }
 
+export interface SalonLayoutResponse {
+  salonId: number
+  savedAt: string
+  savedBy: string
+  tableCount: number
+}
+
 export interface DiningTableResponse {
   id: number
   number: number
