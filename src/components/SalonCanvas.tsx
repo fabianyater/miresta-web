@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Users2 } from 'lucide-react'
 import { toast } from '@/store/toast'
 import { cn } from '@/lib/utils'
@@ -33,6 +33,7 @@ function cellCenter(col: number, row: number) {
  */
 export function SalonCanvas({
   tables,
+  allTables,
   editable = false,
   onTableClick,
   onPositionChange,
@@ -40,6 +41,10 @@ export function SalonCanvas({
   onDropOutside,
 }: {
   tables: TableEntityDto[]
+  // Todas las mesas sin filtrar por salón — para saber si alguna de las que se
+  // muestran aquí es principal de un grupo cuyo miembro vive en otro salón. Si no se
+  // pasa, se asume que `tables` ya es la lista completa.
+  allTables?: TableEntityDto[]
   editable?: boolean
   onTableClick?: (table: TableEntityDto) => void
   onPositionChange?: (id: number, positionX: number, positionY: number) => void
@@ -92,6 +97,18 @@ export function SalonCanvas({
     return !!rect && clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
   }
 
+  // Mesa principal -> mesas unidas a ella (para el número combinado "3+4+5").
+  const membersByPrimaryId = useMemo(() => {
+    const map = new Map<number, TableEntityDto[]>()
+    for (const t of allTables ?? tables) {
+      if (t.mergedIntoId == null) continue
+      const list = map.get(t.mergedIntoId) ?? []
+      list.push(t)
+      map.set(t.mergedIntoId, list)
+    }
+    return map
+  }, [allTables, tables])
+
   return (
     <div
       ref={canvasRef}
@@ -107,6 +124,11 @@ export function SalonCanvas({
         const isFree = table.status === 'OPEN'
         const pos = positionOf(table)
         const dragging = dragId === table.id
+        const isSecondary = table.mergedIntoId != null
+        const members = membersByPrimaryId.get(table.id) ?? []
+        const label = members.length > 0
+          ? [table.number, ...members.map((m) => m.number)].join('+')
+          : String(table.number)
         return (
           <button
             key={table.id}
@@ -159,10 +181,12 @@ export function SalonCanvas({
               onPositionChange?.(table.id, center.x, center.y)
             }}
             style={{ left: `${pos.x}%`, top: `${pos.y}%`, touchAction: editable ? 'none' : undefined }}
+            title={isSecondary ? `Unida a la mesa ${allTables?.find((t) => t.id === table.mergedIntoId)?.number ?? ''}` : undefined}
             className={cn(
               'absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center gap-0.5',
               'w-11 h-11 sm:w-16 sm:h-16 rounded-2xl border-2 bg-white dark:bg-neutral-900 shadow-sm transition-transform',
               isFree ? 'border-status-free' : 'border-status-busy',
+              isSecondary && 'opacity-60 border-dashed',
               editable ? 'cursor-grab active:cursor-grabbing' : 'active:scale-95',
               dragging && 'scale-110 shadow-lg z-10',
             )}
@@ -173,7 +197,7 @@ export function SalonCanvas({
               className={cn('hidden sm:block', isFree ? 'text-status-free' : 'text-status-busy')}
             />
             <span className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-neutral-50 leading-none">
-              {table.number}
+              {label}
             </span>
           </button>
         )

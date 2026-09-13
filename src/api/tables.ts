@@ -16,4 +16,10 @@ export const tablesApi = {
       .then((r) => r.data),
 
   deleteTable: (id: number) => apiClient.delete(`/api/v1/tables/${id}`).then((r) => r.data),
+
+  mergeTables: (primaryId: number, tableIds: number[]) =>
+    apiClient.post(`/api/v1/tables/${primaryId}/merge`, { tableIds }).then((r) => r.data),
+
+  unmergeTables: (primaryId: number) =>
+    apiClient.post(`/api/v1/tables/${primaryId}/unmerge`).then((r) => r.data),
 }

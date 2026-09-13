@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { ShoppingBag, Settings, Plus, Trash2, Pencil, Check, X } from 'lucide-react'
+import { ShoppingBag, Settings, Plus, Trash2, Pencil, Check, X, Link2 } from 'lucide-react'
 import { tablesApi } from '@/api/tables'
 import { salonsApi } from '@/api/salons'
 import { useAuthStore } from '@/store/auth'
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/apiErrors'
 import { isAdminRole } from '@/lib/roles'
 import { StockAlert } from '@/components/StockAlert'
+import type { TableEntityDto } from '@/types'
 
 // Recuerda el último salón que se estaba viendo — entrar a una mesa y volver debe
 // dejar la pestaña donde estaba, no siempre en el primer salón.
@@ -41,6 +42,9 @@ export default function MesasPage() {
   const [editValue, setEditValue] = useState('')
   const [editSalonId, setEditSalonId] = useState<number | null>(null)
   const [activeSalonId, setActiveSalonId] = useState<number | null>(readStoredSalonId)
+  const [mergeOpen, setMergeOpen] = useState(false)
+  // Orden en que se van tocando — la primera queda como principal (ahí corre el pedido).
+  const [selectedForMerge, setSelectedForMerge] = useState<number[]>([])
 
   const { data, isLoading } = useQuery({
     queryKey: ['tables'],
@@ -104,9 +108,58 @@ export default function MesasPage() {
     onError: (e) => toast.error('No se pudo eliminar la mesa', { description: getApiErrorMessage(e) }),
   })
 
+  const mergeTables = useMutation({
+    mutationFn: () => tablesApi.mergeTables(selectedForMerge[0], selectedForMerge.slice(1)),
+    onSuccess: () => {
+      toast.success('Mesas unidas')
+      queryClient.invalidateQueries({ queryKey: ['tables'] })
+      setSelectedForMerge([])
+    },
+    onError: (e) => toast.error('No se pudieron unir', { description: getApiErrorMessage(e) }),
+  })
+
+  const unmergeTables = useMutation({
+    mutationFn: (primaryId: number) => tablesApi.unmergeTables(primaryId),
+    onSuccess: () => {
+      toast.success('Mesas separadas')
+      queryClient.invalidateQueries({ queryKey: ['tables'] })
+    },
+    onError: (e) => toast.error('No se pudo separar', { description: getApiErrorMessage(e) }),
+  })
+
   const allTables = data?.tables ?? []
   const tables = activeSalonId != null ? allTables.filter((t) => t.salonId === activeSalonId) : allTables
   const loading = isLoading || loadingSalones
+
+  const toggleMergeSelection = (id: number) =>
+    setSelectedForMerge((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+
+  // Grupos ya unidos, para poder listarlos y separarlos — sin importar el salón.
+  const activeGroups = useMemo(() => {
+    const membersByPrimaryId = new Map<number, TableEntityDto[]>()
+    for (const t of allTables) {
+      if (t.mergedIntoId == null) continue
+      const list = membersByPrimaryId.get(t.mergedIntoId) ?? []
+      list.push(t)
+      membersByPrimaryId.set(t.mergedIntoId, list)
+    }
+    const groups: { primary: TableEntityDto; members: TableEntityDto[] }[] = []
+    for (const [primaryId, members] of membersByPrimaryId) {
+      const primary = allTables.find((t) => t.id === primaryId)
+      if (primary) groups.push({ primary, members })
+    }
+    return groups
+  }, [allTables])
+
+  // Libres de este salón y que no formen ya parte de otro grupo (ni como principal ni
+  // como secundaria) — eso el backend lo rechazaría igual, pero mejor no ofrecerlo.
+  const primaryIdsInUse = useMemo(
+    () => new Set(allTables.filter((t) => t.mergedIntoId != null).map((t) => t.mergedIntoId!)),
+    [allTables],
+  )
+  const selectableForMerge = tables.filter(
+    (t) => t.status === 'OPEN' && t.mergedIntoId == null && !primaryIdsInUse.has(t.id),
+  )
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
@@ -129,6 +182,10 @@ export default function MesasPage() {
               Administrar
             </Button>
           )}
+          <Button onClick={() => setMergeOpen(true)} variant="secondary">
+            <Link2 size={16} />
+            Unir mesas
+          </Button>
           <Button onClick={() => navigate('/pedido/nuevo')} variant="secondary">
             <ShoppingBag size={16} />
             Para llevar
@@ -158,7 +215,11 @@ export default function MesasPage() {
       {loading && <Skeleton className="h-[260px] w-full rounded-2xl" />}
 
       {!loading && (
-        <SalonCanvas tables={tables} onTableClick={(table) => navigate(`/pedido/mesa/${table.id}`)} />
+        <SalonCanvas
+          tables={tables}
+          allTables={allTables}
+          onTableClick={(table) => navigate(`/pedido/mesa/${table.mergedIntoId ?? table.id}`)}
+        />
       )}
 
       {!loading && allTables.length === 0 && (
@@ -282,6 +343,85 @@ export default function MesasPage() {
             <p className="text-center text-neutral-400 text-sm py-6">Este salón no tiene mesas todavía.</p>
           )}
         </div>
+      </Dialog>
+
+      <Dialog
+        open={mergeOpen}
+        onClose={() => {
+          setMergeOpen(false)
+          setSelectedForMerge([])
+        }}
+        title="Unir mesas"
+      >
+        {activeGroups.length > 0 && (
+          <div className="mb-4">
+            <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2">Grupos activos</p>
+            <div className="space-y-1.5">
+              {activeGroups.map(({ primary, members }) => (
+                <div
+                  key={primary.id}
+                  className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-neutral-50 dark:bg-neutral-700"
+                >
+                  <span className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                    Mesa {[primary.number, ...members.map((m) => m.number)].join(' + ')}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => unmergeTables.mutate(primary.id)}
+                    loading={unmergeTables.isPending}
+                  >
+                    Separar
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1">
+          Nueva unión — mesas libres de «{salones?.find((s) => s.id === activeSalonId)?.name ?? '…'}»
+        </p>
+        <p className="text-xs text-neutral-400 mb-2">
+          Toca las mesas en el orden que quieras — la primera queda como principal (ahí se toma y cobra el pedido).
+        </p>
+        <div className="grid grid-cols-3 gap-2 mb-4 max-h-56 overflow-y-auto">
+          {selectableForMerge.map((t) => {
+            const order = selectedForMerge.indexOf(t.id)
+            const selected = order >= 0
+            return (
+              <button
+                key={t.id}
+                onClick={() => toggleMergeSelection(t.id)}
+                className={cn(
+                  'relative px-2 py-2.5 rounded-lg border text-sm font-medium transition-colors',
+                  selected
+                    ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-300'
+                    : 'border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-300',
+                )}
+              >
+                Mesa {t.number}
+                {selected && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-brand-500 text-white text-[10px] font-semibold flex items-center justify-center">
+                    {order + 1}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+          {selectableForMerge.length === 0 && (
+            <p className="col-span-3 text-sm text-neutral-400 text-center py-4">No hay mesas libres en este salón.</p>
+          )}
+        </div>
+        <Button
+          className="w-full"
+          disabled={selectedForMerge.length < 2}
+          loading={mergeTables.isPending}
+          onClick={() => mergeTables.mutate()}
+        >
+          <Link2 size={16} />
+          Unir{selectedForMerge.length >= 2 ? ` (${selectedForMerge.length})` : ''}
+        </Button>
       </Dialog>
     </div>
   )

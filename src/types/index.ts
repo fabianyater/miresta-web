@@ -193,6 +193,9 @@ export interface TableEntityDto {
   // Posición en el plano del salón, 0-100 (porcentaje del lienzo).
   positionX: number
   positionY: number
+  // Si no es null, esta mesa está unida a otra — el pedido/cuenta corre por esa mesa
+  // principal, esta no tiene uno propio mientras dure el grupo.
+  mergedIntoId: number | null
 }
 
 export interface TableSummaryResponse {
