@@ -234,7 +234,7 @@ export interface OrderTypeDto {
 }
 
 export interface OrderItemProductResponse {
-  id: number
+  id: number | null
   name: string
   quantity: number
   unitExtraPrice: number
