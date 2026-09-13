@@ -18,6 +18,19 @@ import { getApiErrorMessage } from '@/lib/apiErrors'
 import { isAdminRole } from '@/lib/roles'
 import { StockAlert } from '@/components/StockAlert'
 
+// Recuerda el último salón que se estaba viendo — entrar a una mesa y volver debe
+// dejar la pestaña donde estaba, no siempre en el primer salón.
+const ACTIVE_SALON_STORAGE_KEY = 'miresta.mesas.activeSalonId'
+
+function readStoredSalonId(): number | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_SALON_STORAGE_KEY)
+    return raw ? Number(raw) : null
+  } catch {
+    return null
+  }
+}
+
 export default function MesasPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -27,7 +40,7 @@ export default function MesasPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editValue, setEditValue] = useState('')
   const [editSalonId, setEditSalonId] = useState<number | null>(null)
-  const [activeSalonId, setActiveSalonId] = useState<number | null>(null)
+  const [activeSalonId, setActiveSalonId] = useState<number | null>(readStoredSalonId)
 
   const { data, isLoading } = useQuery({
     queryKey: ['tables'],
@@ -40,11 +53,23 @@ export default function MesasPage() {
     queryFn: salonsApi.getSalons,
   })
 
+  // Si no hay salón guardado (o el guardado ya no existe — se borró, por ejemplo),
+  // cae al primero. No pisa uno válido que ya esté seleccionado.
   useEffect(() => {
-    if (salones && salones.length > 0 && activeSalonId == null) {
+    if (!salones || salones.length === 0) return
+    if (activeSalonId == null || !salones.some((s) => s.id === activeSalonId)) {
       setActiveSalonId(salones[0].id)
     }
   }, [salones, activeSalonId])
+
+  useEffect(() => {
+    if (activeSalonId == null) return
+    try {
+      localStorage.setItem(ACTIVE_SALON_STORAGE_KEY, String(activeSalonId))
+    } catch {
+      // localStorage no disponible (modo privado, etc.) — simplemente no se recuerda.
+    }
+  }, [activeSalonId])
 
   const createTable = useMutation({
     mutationFn: () => tablesApi.createTable(Number(newNumber), activeSalonId!),
