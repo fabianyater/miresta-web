@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Minus, Plus, Send, ArrowLeft, ListPlus, X, Receipt, Repeat, User } from 'lucide-react'
+import { Minus, Plus, Send, ArrowLeft, ListPlus, X, Receipt, Repeat, User, Copy, Pencil, Check } from 'lucide-react'
 import { catalogApi } from '@/api/catalog'
 import { menusApi } from '@/api/menus'
 import { ordersApi } from '@/api/orders'
@@ -24,6 +24,11 @@ const MEAL_TYPES: { value: string; label: string }[] = [
 ]
 
 const MEAL_TYPE_LABELS: Record<string, string> = Object.fromEntries(MEAL_TYPES.map((m) => [m.value, m.label]))
+
+// Con pocos clientes (lo normal aquí) es más rápido ver la lista completa y tocar el
+// que sea que buscarlo escribiendo — el buscador solo vale la pena cuando hay
+// demasiados para desplegarlos todos de una.
+const MANY_CUSTOMERS_THRESHOLD = 15
 
 const REPLACEMENT_OPTIONS: { value: ComboCategory | ''; label: string }[] = [
   { value: '', label: 'Ninguno' },
@@ -68,6 +73,10 @@ export default function TomarPedidoPage() {
   const [batch, setBatch] = useState<BatchEntry[]>([])
   const [customerQuery, setCustomerQuery] = useState('')
   const [customer, setCustomer] = useState<CustomerResponse | null>(null)
+  // Mientras se edita un plato ya agregado a "Pedidos por enviar" — ese plato sale
+  // temporalmente de la lista y vuelve a entrar (con los cambios) al guardar.
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+  const editingOriginalRef = useRef<BatchEntry | null>(null)
   // Productos que el mesero agregó a mano por el buscador aunque no estén en el menú
   // de hoy (ej. huevo, aunque hoy la proteína oficial sea otra) — se muestran en su
   // propia categoría como cualquier otro producto, con el mismo cálculo de precio.
@@ -120,13 +129,15 @@ export default function TomarPedidoPage() {
     refetchInterval: 15000,
   })
 
+  const activeCustomers = useMemo(() => (customers ?? []).filter((c) => c.active), [customers])
+  const useCustomerSearch = activeCustomers.length > MANY_CUSTOMERS_THRESHOLD
+
   const customerMatches = useMemo(() => {
+    if (!useCustomerSearch) return activeCustomers
     const q = customerQuery.trim().toLowerCase()
     if (!q) return []
-    return (customers ?? [])
-      .filter((c) => c.active && (c.name.toLowerCase().includes(q) || c.phone.includes(q)))
-      .slice(0, 6)
-  }, [customers, customerQuery])
+    return activeCustomers.filter((c) => c.name.toLowerCase().includes(q) || c.phone.includes(q)).slice(0, 6)
+  }, [activeCustomers, customerQuery, useCustomerSearch])
 
   const menuOffering = useMemo(() => menus?.find((m) => m.type === mealType), [menus, mealType])
 
@@ -278,6 +289,23 @@ export default function TomarPedidoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mealType, menuOffering?.id, !!catalog, !!categories])
 
+  // Al editar un plato ya agregado, reconstruye su selección exacta encima de lo que
+  // los efectos de arriba acaban de reiniciar/sembrar — declarado después de esos para
+  // que gane siempre (mismo commit, mismo cambio de mealType).
+  useEffect(() => {
+    if (!editingKey || !catalog) return
+    const entry = editingOriginalRef.current
+    if (!entry) return
+    const nextLines: Record<number, OrderLine> = {}
+    for (const item of entry.items) {
+      nextLines[item.id] = { quantity: item.quantity ?? 1, replacement: (item.replacement as ComboCategory) || '' }
+    }
+    setLines(nextLines)
+    setComments(entry.comments ?? '')
+    setCustomer(entry.customer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingKey, catalog])
+
   // Buscador para agregar un producto que no está hoy en el menú (ni es bebida/
   // adicional siempre disponible) — ej. un huevo cuando la proteína de hoy es otra.
   const extraSearchMatches = useMemo(() => {
@@ -316,7 +344,9 @@ export default function TomarPedidoPage() {
     })
   }
 
-  const addToBatch = () => {
+  // Guarda el plato en construcción a "Pedidos por enviar" — si venía de "Editar", su
+  // key se conserva (reemplaza al original en vez de duplicarlo); si no, es nuevo.
+  const saveCurrentLine = () => {
     if (lineCount === 0) return
     const summary = Object.keys(lines)
       .map((id) => catalog?.find((p) => p.id === Number(id))?.name)
@@ -325,7 +355,7 @@ export default function TomarPedidoPage() {
     setBatch((prev) => [
       ...prev,
       {
-        key: crypto.randomUUID(),
+        key: editingKey ?? crypto.randomUUID(),
         mealType,
         isToGo,
         menuId: menuOffering?.id ?? null,
@@ -335,6 +365,8 @@ export default function TomarPedidoPage() {
         summary,
       },
     ])
+    editingOriginalRef.current = null
+    setEditingKey(null)
     setLines({})
     setComments('')
     setCustomer(null)
@@ -342,6 +374,35 @@ export default function TomarPedidoPage() {
   }
 
   const removeFromBatch = (key: string) => setBatch((prev) => prev.filter((b) => b.key !== key))
+
+  const duplicateBatchEntry = (key: string) => {
+    setBatch((prev) => {
+      const original = prev.find((b) => b.key === key)
+      if (!original) return prev
+      return [...prev, { ...original, key: crypto.randomUUID() }]
+    })
+  }
+
+  // Saca el plato de la lista y lo vuelve a poner en construcción — se guarda de
+  // nuevo (con los cambios) al tocar "Guardar cambios", o se recupera tal cual si se
+  // cancela la edición.
+  const startEdit = (entry: BatchEntry) => {
+    editingOriginalRef.current = entry
+    setEditingKey(entry.key)
+    setBatch((prev) => prev.filter((b) => b.key !== entry.key))
+    setMealType(entry.mealType)
+    setIsToGo(entry.isToGo)
+  }
+
+  const cancelEdit = () => {
+    if (editingOriginalRef.current) setBatch((prev) => [...prev, editingOriginalRef.current!])
+    editingOriginalRef.current = null
+    setEditingKey(null)
+    setLines({})
+    setComments('')
+    setCustomer(null)
+    setCustomerQuery('')
+  }
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -391,6 +452,8 @@ export default function TomarPedidoPage() {
       setLines({})
       setCustomer(null)
       setCustomerQuery('')
+      editingOriginalRef.current = null
+      setEditingKey(null)
       if (order) {
         try {
           await printingApi.printComanda(order.id)
@@ -410,7 +473,7 @@ export default function TomarPedidoPage() {
   const totalToSend = batch.length + (lineCount > 0 ? 1 : 0)
 
   return (
-    <div className="max-w-3xl mx-auto p-4 md:p-8 pb-56 md:pb-32">
+    <div className="max-w-3xl mx-auto p-4 md:p-8 pb-40 md:pb-24">
       <button
         onClick={() => navigate('/mesas')}
         className="flex items-center gap-1.5 text-sm text-neutral-500 dark:text-neutral-400 mb-4"
@@ -479,12 +542,37 @@ export default function TomarPedidoPage() {
                   {' — '}
                   {entry.summary}
                 </span>
-                <button onClick={() => removeFromBatch(entry.key)} className="text-neutral-400 hover:text-red-500 flex-shrink-0">
-                  <X size={14} />
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => startEdit(entry)}
+                    title="Editar"
+                    className="text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => duplicateBatchEntry(entry.key)}
+                    title="Duplicar"
+                    className="text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400"
+                  >
+                    <Copy size={14} />
+                  </button>
+                  <button onClick={() => removeFromBatch(entry.key)} title="Quitar" className="text-neutral-400 hover:text-red-500">
+                    <X size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
+        </Card>
+      )}
+
+      {editingKey && (
+        <Card className="p-3 mb-4 flex items-center justify-between bg-brand-50 dark:bg-brand-500/10 border-brand-300 dark:border-brand-500/40">
+          <span className="text-sm text-brand-700 dark:text-brand-300">Editando un plato ya agregado</span>
+          <button onClick={cancelEdit} className="text-xs font-medium text-brand-700 dark:text-brand-300 underline">
+            Cancelar edición
+          </button>
         </Card>
       )}
 
@@ -710,7 +798,7 @@ export default function TomarPedidoPage() {
                 Quitar
               </button>
             </div>
-          ) : (
+          ) : useCustomerSearch ? (
             <div className="relative">
               <Input
                 placeholder="Buscar por nombre o teléfono"
@@ -740,6 +828,24 @@ export default function TomarPedidoPage() {
                 </Card>
               )}
             </div>
+          ) : (
+            <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 max-h-56 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-700">
+              {activeCustomers.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setCustomer(c)}
+                  className="w-full text-left px-3 py-2 flex items-center justify-between gap-2 hover:bg-neutral-50 dark:hover:bg-neutral-700"
+                >
+                  <span className="text-sm font-medium text-neutral-900 dark:text-neutral-50 truncate">{c.name}</span>
+                  <span className="text-xs text-neutral-500 flex-shrink-0">{c.phone}</span>
+                </button>
+              ))}
+              {activeCustomers.length === 0 && (
+                <p className="text-xs text-neutral-400 px-3 py-2">
+                  Aún no hay clientes registrados. Regístralo desde la página Clientes.
+                </p>
+              )}
+            </div>
           )}
         </div>
 
@@ -749,21 +855,21 @@ export default function TomarPedidoPage() {
         </div>
       </Card>
 
-      {/* Submit bar */}
-      <div className="fixed bottom-16 md:bottom-0 inset-x-0 md:left-60 bg-white dark:bg-neutral-800 border-t border-neutral-200 dark:border-neutral-700 p-4 flex flex-col gap-2 z-20">
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-sm text-neutral-500">{lineCount} producto(s) en este plato</span>
-          <Button
-            variant="secondary"
-            onClick={addToBatch}
-            disabled={lineCount === 0}
-          >
-            <ListPlus size={16} />
-            Agregar otro pedido
-          </Button>
-        </div>
+      {/* Botones flotantes — no ocupan el ancho completo, quedan libres sobre el
+          contenido para poder seguir viendo/desplazando lo de arriba. */}
+      <div className="fixed bottom-20 md:bottom-6 right-4 md:right-8 z-20 flex flex-col items-end gap-3">
+        <Button
+          variant="secondary"
+          className="rounded-full shadow-lg px-4"
+          onClick={saveCurrentLine}
+          disabled={lineCount === 0}
+        >
+          {editingKey ? <Check size={16} /> : <ListPlus size={16} />}
+          {editingKey ? 'Guardar cambios' : `Agregar${lineCount > 0 ? ` (${lineCount})` : ''}`}
+        </Button>
         <Button
           size="lg"
+          className="rounded-full shadow-lg px-6"
           onClick={() => submit.mutate()}
           disabled={totalToSend === 0 || submit.isPending}
           loading={submit.isPending}
@@ -771,7 +877,7 @@ export default function TomarPedidoPage() {
           {!submit.isPending && (
             <>
               <Send size={16} />
-              Enviar pedidos {totalToSend > 0 ? `(${totalToSend})` : ''}
+              Enviar {totalToSend > 0 ? `(${totalToSend})` : ''}
             </>
           )}
         </Button>
