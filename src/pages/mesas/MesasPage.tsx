@@ -164,7 +164,7 @@ export default function MesasPage() {
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <StockAlert />
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-neutral-900 dark:text-neutral-50 tracking-tight">Mesas</h1>
           {isLoading ? (
@@ -177,18 +177,18 @@ export default function MesasPage() {
         </div>
         <div className="flex gap-2">
           {isAdmin && (
-            <Button onClick={() => setManageOpen(true)} variant="secondary">
+            <Button onClick={() => setManageOpen(true)} variant="secondary" title="Administrar" className="flex-1 sm:flex-none">
               <Settings size={16} />
-              Administrar
+              <span className="hidden sm:inline">Administrar</span>
             </Button>
           )}
-          <Button onClick={() => setMergeOpen(true)} variant="secondary">
+          <Button onClick={() => setMergeOpen(true)} variant="secondary" title="Unir mesas" className="flex-1 sm:flex-none">
             <Link2 size={16} />
-            Unir mesas
+            <span className="hidden sm:inline">Unir mesas</span>
           </Button>
-          <Button onClick={() => navigate('/pedido/nuevo')} variant="secondary">
+          <Button onClick={() => navigate('/pedido/nuevo')} variant="secondary" title="Para llevar" className="flex-1 sm:flex-none">
             <ShoppingBag size={16} />
-            Para llevar
+            <span className="hidden sm:inline">Para llevar</span>
           </Button>
         </div>
       </div>
